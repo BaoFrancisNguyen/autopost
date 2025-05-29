@@ -64,7 +64,7 @@ class StableDiffusionGenerator:
             pass
     
     def generate_image(self, prompt: str, negative_prompt: str = None, 
-                      width: int = 1024, height: int = 1024, 
+                      width: int = 720, height: int = 720, 
                       steps: int = 20, cfg_scale: float = 7.0) -> ImageGenerationResult:
         """
         Génère une image avec Stable Diffusion
@@ -438,8 +438,8 @@ class HuggingFaceGenerator:
                     "negative_prompt": "blurry, low quality, bad anatomy",
                     "num_inference_steps": 20,
                     "guidance_scale": 7.5,
-                    "width": 1024,
-                    "height": 1024
+                    "width": 720,
+                    "height": 720
                 }
             }
             

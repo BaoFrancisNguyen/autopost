@@ -348,7 +348,7 @@ class HybridAIGenerator:
         """Alias pour la compatibilité"""
         return self.generate_content(topic, tone, additional_context)
     
-    def generate_image(self, prompt: str, size: str = "1024x1024"):
+    def generate_image(self, prompt: str, size: str = "720x720"):
         """Génère une image avec DALL-E si disponible"""
         if self.image_generator:
             return self.image_generator.generate_image(prompt, size)
@@ -379,7 +379,7 @@ class LocalImageGenerator:
         print("   - Intégrer Stable Diffusion localement")
         print("   - Uploader des images manuellement")
     
-    def generate_placeholder(self, prompt: str, size: str = "1024x1024"):
+    def generate_placeholder(self, prompt: str, size: str = "720x720"):
         """Génère une image placeholder"""
         # Pour l'instant, retourne None
         # Dans le futur, pourrait intégrer Stable Diffusion ou autre

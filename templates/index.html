@@ -6,8 +6,11 @@
 <div class="row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
-            <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">
+            <div>
+                <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+                <p class="text-muted mb-0">Gérez vos publications Instagram avec l'IA</p>
+            </div>
+            <a href="{{ url_for('main.create_post') }}" class="btn btn-primary btn-lg">
                 <i class="fas fa-plus"></i> Nouveau Post
             </a>
         </div>
@@ -15,190 +18,62 @@
         <!-- Statistiques -->
         <div class="row mb-4">
             <div class="col-md-3">
-                <div class="card text-center">
+                <div class="card text-center h-100">
                     <div class="card-body">
-                        <h3 class="text-primary">{{ stats.total or 0 }}</h3>
-                        <p class="card-text">Total Posts</p>
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-list-alt fa-2x text-primary me-3"></i>
+                            <div>
+                                <h3 class="text-primary mb-0">{{ stats.total or 0 }}</h3>
+                                <p class="card-text mb-0">Total Posts</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card text-center">
+                <div class="card text-center h-100">
                     <div class="card-body">
-                        <h3 class="text-success">{{ stats.published or 0 }}</h3>
-                        <p class="card-text">Publiés</p>
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-check-circle fa-2x text-success me-3"></i>
+                            <div>
+                                <h3 class="text-success mb-0">{{ stats.published or 0 }}</h3>
+                                <p class="card-text mb-0">Publiés</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card text-center">
+                <div class="card text-center h-100">
                     <div class="card-body">
-                        <h3 class="text-warning">{{ stats.scheduled or 0 }}</h3>
-                        <p class="card-text">Programmés</p>
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-clock fa-2x text-warning me-3"></i>
+                            <div>
+                                <h3 class="text-warning mb-0">{{ stats.scheduled or 0 }}</h3>
+                                <p class="card-text mb-0">Programmés</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card text-center">
+                <div class="card text-center h-100">
                     <div class="card-body">
-                        <h3 class="text-info">{{ stats.ready_to_publish or 0 }}</h3>
-                        <p class="card-text">Prêts</p>
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-bolt fa-2x text-info me-3"></i>
+                            <div>
+                                <h3 class="text-info mb-0">{{ stats.ready_to_publish or 0 }}</h3>
+                                <p class="card-text mb-0">Prêts</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Liste des posts -->
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-list"></i> Posts Récents</h5>
-            </div>
-            <div class="card-body">
-                {% if posts %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Titre</th>
-                                    <th>Sujet</th>
-                                    <th>Statut</th>
-                                    <th>Programmé</th>
-                                    <th>Créé</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for post in posts %}
-                                <tr>
-                                    <td>
-                                        <strong>{{ post.title }}</strong>
-                                        {% if post.description %}
-                                            <br><small class="text-muted">{{ post.description[:80] }}{% if post.description|length > 80 %}...{% endif %}</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-light text-dark">{{ post.topic }}</span>
-                                    </td>
-                                    <td>
-                                        {% set status_class = {
-                                            'published': 'success',
-                                            'scheduled': 'warning', 
-                                            'draft': 'secondary',
-                                            'failed': 'danger',
-                                            'processing': 'info'
-                                        } %}
-                                        <span class="badge bg-{{ status_class.get(post.status, 'secondary') }}">
-                                            {% set status_icons = {
-                                                'draft': 'fas fa-edit',
-                                                'scheduled': 'fas fa-clock',
-                                                'published': 'fas fa-check-circle',
-                                                'failed': 'fas fa-exclamation-triangle',
-                                                'processing': 'fas fa-spinner'
-                                            } %}
-                                            <i class="{{ status_icons.get(post.status, 'fas fa-question') }}"></i>
-                                            {{ post.status|title }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if post.scheduled_time %}
-                                            <small>{{ post.scheduled_time.strftime('%d/%m/%Y') }}</small><br>
-                                            <small class="text-muted">{{ post.scheduled_time.strftime('%H:%M') }}</small>
-                                        {% else %}
-                                            <span class="text-muted">Non programmé</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if post.created_at %}
-                                            <small>{{ post.created_at.strftime('%d/%m/%Y') }}</small><br>
-                                            <small class="text-muted">{{ post.created_at.strftime('%H:%M') }}</small>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            {% if post.status in ['draft', 'scheduled', 'failed'] %}
-                                                <a href="{{ url_for('main.publish_now', post_id=post.id) }}" 
-                                                   class="btn btn-sm btn-success"
-                                                   onclick="return confirm('Publier maintenant ce post ?')"
-                                                   title="Publier maintenant">
-                                                    <i class="fas fa-paper-plane"></i>
-                                                </a>
-                                            {% endif %}
-                                            
-                                            <a href="{{ url_for('main.edit_post', post_id=post.id) }}" 
-                                               class="btn btn-sm btn-outline-primary"
-                                               title="Modifier">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            
-                                            {% if post.status == 'draft' %}
-                                                <a href="{{ url_for('main.delete_post', post_id=post.id) }}" 
-                                                   class="btn btn-sm btn-outline-danger"
-                                                   onclick="return confirm('Supprimer définitivement ce post ?')"
-                                                   title="Supprimer">
-                                                    <i class="fas fa-trash"></i>
-                                                </a>
-                                            {% endif %}
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    {% if posts|length >= 10 %}
-                        <div class="text-center mt-3">
-                            <a href="{{ url_for('main.list_posts') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-list"></i> Voir tous les posts
-                            </a>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-inbox fa-4x text-muted mb-4"></i>
-                        <h4 class="text-muted">Aucun post créé</h4>
-                        <p class="text-muted mb-4">Commencez par créer votre premier post automatisé avec l'IA !</p>
-                        <a href="{{ url_for('main.create_post') }}" class="btn btn-primary btn-lg">
-                            <i class="fas fa-plus me-2"></i> Créer mon premier post
-                        </a>
-                        
-                        <div class="row mt-4">
-                            <div class="col-md-4">
-                                <div class="card border-0">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-robot fa-2x text-primary mb-3"></i>
-                                        <h6>IA Locale</h6>
-                                        <small class="text-muted">Génération avec Ollama</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card border-0">
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-clock fa-2x text-warning mb-3"></i>
-                                        <h6>Programmation</h6>
-                                        <small class="text-muted">Publication automatique</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="card border-0">
-                                    <div class="card-body text-center">
-                                        <i class="fab fa-instagram fa-2x text-danger mb-3"></i>
-                                        <h6>Publication</h6>
-                                        <small class="text-muted">Directement sur Instagram</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-        
         <!-- Actions rapides -->
         {% if stats.ready_to_publish and stats.ready_to_publish > 0 %}
-            <div class="alert alert-info mt-4">
+            <div class="alert alert-info mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <i class="fas fa-info-circle me-2"></i>
@@ -212,7 +87,7 @@
         {% endif %}
         
         {% if stats.failed and stats.failed > 0 %}
-            <div class="alert alert-warning mt-4">
+            <div class="alert alert-warning mb-4">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <i class="fas fa-exclamation-triangle me-2"></i>
@@ -224,29 +99,316 @@
                 </div>
             </div>
         {% endif %}
+
+        <!-- Liste des posts -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-list"></i> Posts Récents</h5>
+                    {% if posts and posts|length >= 10 %}
+                        <a href="{{ url_for('main.list_posts') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-list"></i> Voir tous les posts
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if posts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 35%">Post</th>
+                                    <th style="width: 15%">Sujet</th>
+                                    <th style="width: 15%">Statut</th>
+                                    <th style="width: 15%">Programmé</th>
+                                    <th style="width: 12%">Créé</th>
+                                    <th style="width: 8%">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in posts %}
+                                <tr>
+                                    <!-- Titre et description -->
+                                    <td>
+                                        <div class="d-flex align-items-start">
+                                            <!-- Indicateur visuel d'image -->
+                                            <div class="me-3">
+                                                {% if post.image_path %}
+                                                    <div class="bg-success rounded d-flex align-items-center justify-content-center" 
+                                                         style="width: 40px; height: 40px; min-width: 40px;">
+                                                        <i class="fas fa-image text-white"></i>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="bg-secondary rounded d-flex align-items-center justify-content-center" 
+                                                         style="width: 40px; height: 40px; min-width: 40px;">
+                                                        <i class="fas fa-image text-white opacity-50"></i>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <!-- Contenu -->
+                                            <div class="flex-grow-1">
+                                                <!-- Titre cliquable pour aperçu -->
+                                                <a href="{{ url_for('main.preview_post', post_id=post.id) }}" 
+                                                   class="text-decoration-none">
+                                                    <strong class="text-primary">{{ post.title }}</strong>
+                                                </a>
+                                                
+                                                {% if post.description %}
+                                                    <br><small class="text-muted">
+                                                        {% if post.description|length > 60 %}
+                                                            {{ post.description[:60] }}...
+                                                        {% else %}
+                                                            {{ post.description }}
+                                                        {% endif %}
+                                                    </small>
+                                                {% endif %}
+                                                
+                                                <!-- Indicateurs de contenu -->
+                                                <br>
+                                                <div class="mt-1">
+                                                    {% if post.image_path %}
+                                                        <span class="badge bg-success bg-opacity-10 text-success me-1">
+                                                            <i class="fas fa-image me-1"></i>Image IA
+                                                        </span>
+                                                    {% endif %}
+                                                    {% if post.description %}
+                                                        <span class="badge bg-info bg-opacity-10 text-info me-1">
+                                                            <i class="fas fa-robot me-1"></i>Contenu IA
+                                                        </span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Sujet -->
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ post.topic }}</span>
+                                    </td>
+                                    
+                                    <!-- Statut -->
+                                    <td>
+                                        {% if post.status == 'published' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check-circle"></i> Publié
+                                            </span>
+                                        {% elif post.status == 'scheduled' %}
+                                            <span class="badge bg-warning">
+                                                <i class="fas fa-clock"></i> Programmé
+                                            </span>
+                                        {% elif post.status == 'draft' %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-edit"></i> Brouillon
+                                            </span>
+                                        {% elif post.status == 'failed' %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-exclamation-triangle"></i> Échec
+                                            </span>
+                                        {% elif post.status == 'processing' %}
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-spinner fa-spin"></i> En cours
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-question"></i> {{ post.status|title }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <!-- Date programmée -->
+                                    <td>
+                                        {% if post.scheduled_time %}
+                                            <small>{{ post.scheduled_time.strftime('%d/%m/%Y') }}</small><br>
+                                            <small class="text-muted">{{ post.scheduled_time.strftime('%H:%M') }}</small>
+                                        {% else %}
+                                            <span class="text-muted">
+                                                <i class="fas fa-minus"></i>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <!-- Date de création -->
+                                    <td>
+                                        {% if post.created_at %}
+                                            <small>{{ post.created_at.strftime('%d/%m') }}</small><br>
+                                            <small class="text-muted">{{ post.created_at.strftime('%H:%M') }}</small>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <!-- Actions -->
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                                    type="button" 
+                                                    data-bs-toggle="dropdown"
+                                                    title="Actions">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <!-- Aperçu (toujours disponible) -->
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('main.preview_post', post_id=post.id) }}">
+                                                        <i class="fas fa-eye me-2 text-info"></i>Voir l'aperçu
+                                                    </a>
+                                                </li>
+                                                
+                                                <li><hr class="dropdown-divider"></li>
+                                                
+                                                <!-- Actions selon le statut -->
+                                                {% if post.status in ['draft', 'scheduled', 'failed'] %}
+                                                <li>
+                                                    <a class="dropdown-item" 
+                                                       href="{{ url_for('main.publish_now', post_id=post.id) }}"
+                                                       onclick="return confirm('Publier ce post maintenant sur Instagram ?')">
+                                                        <i class="fas fa-paper-plane me-2 text-success"></i>Publier maintenant
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                                
+                                                <li>
+                                                    <a class="dropdown-item" href="{{ url_for('main.edit_post', post_id=post.id) }}">
+                                                        <i class="fas fa-edit me-2 text-primary"></i>Modifier
+                                                    </a>
+                                                </li>
+                                                
+                                                {% if post.status == 'published' and post.instagram_post_id %}
+                                                <li>
+                                                    <a class="dropdown-item" 
+                                                       href="https://www.instagram.com/p/{{ post.instagram_post_id }}" 
+                                                       target="_blank">
+                                                        <i class="fab fa-instagram me-2 text-danger"></i>Voir sur Instagram
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                                
+                                                {% if post.status == 'draft' %}
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li>
+                                                    <a class="dropdown-item text-danger" 
+                                                       href="{{ url_for('main.delete_post', post_id=post.id) }}"
+                                                       onclick="return confirm('Supprimer définitivement ce post ?')">
+                                                        <i class="fas fa-trash me-2"></i>Supprimer
+                                                    </a>
+                                                </li>
+                                                {% endif %}
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <div class="mb-4">
+                            <i class="fas fa-robot fa-4x text-primary mb-3"></i>
+                            <h4 class="text-muted">Aucun post créé</h4>
+                            <p class="text-muted mb-4">Commencez par créer votre premier post automatisé avec l'IA !</p>
+                        </div>
+                        
+                        <a href="{{ url_for('main.create_post') }}" class="btn btn-primary btn-lg mb-4">
+                            <i class="fas fa-plus me-2"></i>Créer mon premier post
+                        </a>
+                        
+                        <!-- Fonctionnalités disponibles -->
+                        <div class="row mt-4">
+                            <div class="col-md-4">
+                                <div class="card border-0 h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-brain fa-3x text-primary mb-3"></i>
+                                        <h6>Contenu Intelligent</h6>
+                                        <small class="text-muted">Descriptions et hashtags générés par Ollama</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-0 h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-image fa-3x text-success mb-3"></i>
+                                        <h6>Images Créatives</h6>
+                                        <small class="text-muted">Images uniques créées par Stable Diffusion</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-0 h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-clock fa-3x text-warning mb-3"></i>
+                                        <h6>Publication Automatique</h6>
+                                        <small class="text-muted">Programmez vos posts pour plus tard</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Liens utiles -->
+                        <div class="mt-4">
+                            <a href="{{ url_for('main.test_generation_page') }}" class="btn btn-outline-info me-2">
+                                <i class="fas fa-flask me-1"></i>Tester la génération d'images
+                            </a>
+                            <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-cog me-1"></i>Paramètres
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Liens rapides -->
+        {% if posts %}
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <a href="{{ url_for('main.create_post') }}" class="btn btn-outline-primary w-100">
+                                    <i class="fas fa-plus mb-2 d-block"></i>
+                                    <small>Créer un post</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ url_for('main.image_gallery') }}" class="btn btn-outline-info w-100">
+                                    <i class="fas fa-images mb-2 d-block"></i>
+                                    <small>Galerie d'images</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ url_for('main.test_generation_page') }}" class="btn btn-outline-success w-100">
+                                    <i class="fas fa-flask mb-2 d-block"></i>
+                                    <small>Test génération</small>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary w-100">
+                                    <i class="fas fa-cog mb-2 d-block"></i>
+                                    <small>Paramètres</small>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Modal de confirmation pour publication -->
-<div class="modal fade" id="publishModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirmer la publication</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Êtes-vous sûr de vouloir publier ce post maintenant sur Instagram ?</p>
-                <div class="alert alert-info">
-                    <small><i class="fas fa-info-circle me-1"></i> Cette action est irréversible.</small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <a href="#" class="btn btn-success" id="confirmPublish">
-                    <i class="fas fa-paper-plane me-1"></i> Publier
-                </a>
-            </div>
+<!-- Toast pour notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="notification-toast" class="toast" role="alert">
+        <div class="toast-header">
+            <i class="fas fa-info-circle text-primary me-2"></i>
+            <strong class="me-auto">Instagram Automation</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            <!-- Message dynamique -->
         </div>
     </div>
 </div>
@@ -254,53 +416,81 @@
 
 {% block scripts %}
 <script>
-// Gestion des confirmations de publication
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-refresh toutes les 30 secondes pour voir les nouveaux posts publiés
-    setInterval(function() {
-        // Seulement si on est sur le dashboard et qu'il y a des posts programmés
-        const scheduledCount = {{ stats.scheduled or 0 }};
-        if (scheduledCount > 0) {
-            location.reload();
-        }
-    }, 30000);
+    // Auto-refresh toutes les 30 secondes si des posts sont programmés
+    const scheduledCount = parseInt('{{ stats.scheduled or 0 }}');
+    const processingCount = parseInt('{{ stats.ready_to_publish or 0 }}');
     
-    // Animation des badges de statut
-    document.querySelectorAll('.badge').forEach(function(badge) {
-        if (badge.textContent.includes('Processing')) {
-            badge.classList.add('animate-pulse');
-        }
+    if (scheduledCount > 0 || processingCount > 0) {
+        setInterval(function() {
+            // Rafraîchir silencieusement les statistiques
+            fetch('/api/stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mettre à jour les compteurs sans recharger la page
+                    updateStatsDisplay(data.posts);
+                }
+            })
+            .catch(error => console.log('Erreur stats:', error));
+        }, 30000);
+    }
+    
+    // Animation des badges de statut "processing"
+    const processingBadges = document.querySelectorAll('.badge:has(.fa-spinner)');
+    processingBadges.forEach(function(badge) {
+        badge.style.animation = 'pulse 2s infinite';
+    });
+    
+    // Gestion des tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 });
 
-// Fonction pour formater les dates relatives
-function timeAgo(date) {
-    const now = new Date();
-    const diff = now - date;
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
+function updateStatsDisplay(stats) {
+    // Mettre à jour les compteurs affichés
+    const elements = {
+        total: document.querySelector('.text-primary'),
+        published: document.querySelector('.text-success'),
+        scheduled: document.querySelector('.text-warning'),
+        ready: document.querySelector('.text-info')
+    };
     
-    if (minutes < 1) return 'À l\'instant';
-    if (minutes < 60) return `Il y a ${minutes} min`;
-    if (hours < 24) return `Il y a ${hours} h`;
-    return `Il y a ${days} j`;
+    if (elements.total) elements.total.textContent = stats.total || 0;
+    if (elements.published) elements.published.textContent = stats.published || 0;
+    if (elements.scheduled) elements.scheduled.textContent = stats.scheduled || 0;
+    if (elements.ready) elements.ready.textContent = stats.ready_to_publish || 0;
+}
+
+function showNotification(message, type = 'info') {
+    const toast = document.getElementById('notification-toast');
+    const toastBody = toast.querySelector('.toast-body');
+    const toastIcon = toast.querySelector('.fas');
+    
+    // Configurer l'icône et le message
+    toastIcon.className = `fas fa-${type === 'success' ? 'check-circle text-success' : 'info-circle text-primary'} me-2`;
+    toastBody.textContent = message;
+    
+    // Afficher le toast
+    new bootstrap.Toast(toast).show();
+}
+
+// Fonction pour copier l'URL d'aperçu
+function copyPreviewUrl(postId) {
+    const url = `${window.location.origin}/post/${postId}/preview`;
+    navigator.clipboard.writeText(url).then(() => {
+        showNotification('URL d\'aperçu copiée !', 'success');
+    });
 }
 </script>
 
 <style>
-.animate-pulse {
-    animation: pulse 2s infinite;
-}
-
 @keyframes pulse {
     0% { opacity: 1; }
     50% { opacity: 0.5; }
     100% { opacity: 1; }
-}
-
-.btn-group .btn {
-    margin-right: 0 !important;
 }
 
 .table th {
@@ -308,6 +498,11 @@ function timeAgo(date) {
     font-weight: 600;
     color: #495057;
     font-size: 0.875rem;
+    background-color: #f8f9fa;
+}
+
+.table td {
+    vertical-align: middle;
 }
 
 .badge {
@@ -317,7 +512,45 @@ function timeAgo(date) {
 .card-body h3 {
     font-size: 2rem;
     font-weight: 700;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.dropdown-menu {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border: none;
+}
+
+.dropdown-item {
+    font-size: 0.875rem;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Indicateur d'image */
+.bg-success {
+    background-color: #28a745 !important;
+}
+
+.bg-secondary {
+    background-color: #6c757d !important;
+}
+
+/* Amélioration des liens */
+a.text-decoration-none:hover .text-primary {
+    text-decoration: underline !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+    }
 }
 </style>
 {% endblock %}

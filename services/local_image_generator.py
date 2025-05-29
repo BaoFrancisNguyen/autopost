@@ -12,7 +12,7 @@ class LocalImageGenerator:
         print("   - Intégrer Stable Diffusion localement")
         print("   - Uploader des images manuellement")
     
-    def generate_placeholder(self, prompt: str, size: str = "1024x1024"):
+    def generate_placeholder(self, prompt: str, size: str = "720x720"):
         """Génère une image placeholder"""
         # Pour l'instant, retourne None
         # Dans le futur, pourrait intégrer Stable Diffusion ou autre

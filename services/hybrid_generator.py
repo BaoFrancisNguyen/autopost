@@ -32,7 +32,7 @@ class HybridAIGenerator:
         """Génère du contenu avec Ollama"""
         return self.content_generator.generate_description_and_hashtags(topic, tone, additional_context)
     
-    def generate_image(self, prompt: str, size: str = "1024x1024"):
+    def generate_image(self, prompt: str, size: str = "720x720"):
         """Génère une image avec DALL-E si disponible"""
         if self.image_generator:
             return self.image_generator.generate_image(prompt, size)

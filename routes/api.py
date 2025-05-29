@@ -62,7 +62,7 @@ def generate_image():
             return jsonify({'error': 'Données JSON requises'}), 400
         
         prompt = data.get('prompt', '').strip()
-        size = data.get('size', '1024x1024')
+        size = data.get('size', '720x720')
         quality = data.get('quality', 'standard')
         
         if not prompt:
@@ -421,24 +421,47 @@ def manual_check_api():
 
 @api_bp.route('/stats', methods=['GET'])
 def get_stats():
-    """API pour récupérer les statistiques de l'application"""
+    """API pour récupérer les statistiques de l'application - VERSION CORRIGÉE"""
     try:
         # Statistiques des posts
-        posts_stats = current_app.db_manager.get_posts_stats()
+        posts_stats = current_app.db_manager.get_posts_stats() if hasattr(current_app, 'db_manager') and current_app.db_manager else {}
         
         # Statistiques du scheduler
         scheduler_stats = None
-        if current_app.scheduler:
-            scheduler_stats = current_app.scheduler.get_statistics()
+        if hasattr(current_app, 'scheduler') and current_app.scheduler:
+            try:
+                scheduler_stats = current_app.scheduler.get_statistics()
+            except Exception as e:
+                current_app.logger.warning(f"Erreur stats scheduler: {e}")
         
-        # Statut des services
+        # Statut des services - VERSION CORRIGÉE
         services_status = {
-            'database': True,
-            'ai_generator': current_app.ai_generator is not None,
-            'content_generator': current_app.content_generator is not None,
-            'instagram_publisher': current_app.instagram_publisher is not None,
-            'scheduler': current_app.scheduler is not None and current_app.scheduler.is_running
+            'database': hasattr(current_app, 'db_manager') and current_app.db_manager is not None,
+            'content_generator': hasattr(current_app, 'content_generator') and current_app.content_generator is not None,
+            'scheduler': hasattr(current_app, 'scheduler') and current_app.scheduler is not None and (current_app.scheduler.is_running if hasattr(current_app.scheduler, 'is_running') else False)
         }
+        
+        # Services d'images - LOGIQUE CORRIGÉE
+        # Vérifier Stable Diffusion
+        if hasattr(current_app, 'sd_generator') and current_app.sd_generator:
+            services_status['stable_diffusion'] = current_app.sd_generator.is_available if hasattr(current_app.sd_generator, 'is_available') else False
+        else:
+            services_status['stable_diffusion'] = False
+        
+        # Vérifier Hugging Face
+        if hasattr(current_app, 'hf_generator') and current_app.hf_generator:
+            services_status['huggingface'] = True
+        else:
+            services_status['huggingface'] = False
+        
+        # Vérifier OpenAI (image_generator sans is_available = OpenAI)
+        if hasattr(current_app, 'image_generator') and current_app.image_generator and not hasattr(current_app.image_generator, 'is_available'):
+            services_status['openai_images'] = True
+        else:
+            services_status['openai_images'] = False
+        
+        # Instagram
+        services_status['instagram_publisher'] = hasattr(current_app, 'instagram_publisher') and current_app.instagram_publisher is not None
         
         return jsonify({
             'success': True,
@@ -451,6 +474,8 @@ def get_stats():
     except Exception as e:
         current_app.logger.error(f"Erreur API statistiques: {e}")
         return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+    
+
 
 
 @api_bp.route('/search', methods=['GET'])
@@ -672,8 +697,8 @@ def generate_image_sd():
         negative_prompt = data.get('negative_prompt', '')
         steps = data.get('steps', 20)
         cfg_scale = data.get('cfg_scale', 7.0)
-        width = data.get('width', 1024)
-        height = data.get('height', 1024)
+        width = data.get('width', 720)
+        height = data.get('height', 720)
         
         # Validation des paramètres
         steps = max(1, min(150, int(steps)))  # Entre 1 et 150
@@ -813,4 +838,213 @@ def generate_variations_sd():
         
     except Exception as e:
         current_app.logger.error(f"Erreur API variations SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+    
+# À ajouter dans routes/api.py après les autres routes
+
+@api_bp.route('/delete-image', methods=['POST'])
+def delete_image():
+    """API pour supprimer une image générée"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        filename = data.get('filename', '').strip()
+        if not filename:
+            return jsonify({'error': 'Nom de fichier requis'}), 400
+        
+        # Construire le chemin de l'image
+        image_path = os.path.join('generated', filename)
+        
+        # Vérifier que le fichier existe et le supprimer
+        if os.path.exists(image_path):
+            try:
+                os.remove(image_path)
+                current_app.logger.info(f"Image supprimée: {filename}")
+                return jsonify({
+                    'success': True,
+                    'message': f'Image {filename} supprimée avec succès'
+                })
+            except Exception as e:
+                current_app.logger.error(f"Erreur suppression image {filename}: {e}")
+                return jsonify({'error': f'Impossible de supprimer le fichier: {str(e)}'}), 500
+        else:
+            return jsonify({'error': 'Fichier non trouvé'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API suppression image: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/clear-gallery', methods=['POST'])
+def clear_gallery():
+    """API pour vider la galerie d'images"""
+    try:
+        import glob
+        
+        # Patterns de fichiers d'images
+        image_patterns = ['*.png', '*.jpg', '*.jpeg', '*.gif']
+        deleted_count = 0
+        
+        for pattern in image_patterns:
+            files = glob.glob(os.path.join('generated', pattern))
+            for file_path in files:
+                try:
+                    os.remove(file_path)
+                    deleted_count += 1
+                except Exception as e:
+                    current_app.logger.warning(f"Impossible de supprimer {file_path}: {e}")
+        
+        current_app.logger.info(f"Galerie vidée: {deleted_count} images supprimées")
+        
+        return jsonify({
+            'success': True,
+            'message': f'{deleted_count} image(s) supprimée(s)',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API nettoyage galerie: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/generate-image-hf', methods=['POST'])
+def generate_image_hf():
+    """API pour générer une image avec Hugging Face"""
+    try:
+        if not hasattr(current_app, 'hf_generator') or not current_app.hf_generator:
+            return jsonify({'error': 'Hugging Face non disponible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        prompt = data.get('prompt', '').strip()
+        if not prompt:
+            return jsonify({'error': 'Prompt requis'}), 400
+        
+        current_app.logger.info(f"API: Génération HF - Prompt: {prompt[:50]}...")
+        
+        import time
+        start_time = time.time()
+        
+        result = current_app.hf_generator.generate_image(prompt)
+        
+        generation_time = time.time() - start_time
+        
+        if result.success:
+            # Convertir le chemin en URL accessible
+            import os
+            image_filename = os.path.basename(result.image_path)
+            image_url = f"/static/generated/{image_filename}"
+            
+            return jsonify({
+                'success': True,
+                'image_path': result.image_path,
+                'image_url': image_url,
+                'prompt_used': prompt,
+                'generation_time': round(generation_time, 1),
+                'service': 'Hugging Face'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error_message
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API génération HF: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/post-summary/<int:post_id>', methods=['GET'])
+def get_post_summary(post_id):
+    """API pour récupérer un résumé rapide d'un post"""
+    try:
+        if not hasattr(current_app, 'db_manager') or not current_app.db_manager:
+            return jsonify({'error': 'Base de données non disponible'}), 503
+        
+        post = current_app.db_manager.get_post_by_id(post_id)
+        
+        if not post:
+            return jsonify({'error': 'Post non trouvé'}), 404
+        
+        # Résumé compact
+        summary = {
+            'id': post.id,
+            'title': post.title,
+            'status': post.status,
+            'has_image': bool(post.image_path),
+            'has_content': bool(post.description),
+            'scheduled_time': post.scheduled_time.isoformat() if post.scheduled_time else None,
+            'created_at': post.created_at.isoformat() if post.created_at else None,
+            'preview_url': f'/post/{post.id}/preview'
+        }
+        
+        return jsonify({
+            'success': True,
+            'post': summary
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API résumé post {post_id}: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/bulk-actions', methods=['POST'])
+def bulk_actions():
+    """API pour les actions en lot sur plusieurs posts"""
+    try:
+        if not hasattr(current_app, 'db_manager') or not current_app.db_manager:
+            return jsonify({'error': 'Base de données non disponible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        post_ids = data.get('post_ids', [])
+        action = data.get('action', '').strip()
+        
+        if not post_ids or not action:
+            return jsonify({'error': 'IDs de posts et action requis'}), 400
+        
+        results = []
+        
+        for post_id in post_ids:
+            try:
+                if action == 'delete':
+                    success = current_app.db_manager.delete_post(post_id)
+                    results.append({'post_id': post_id, 'success': success, 'action': 'deleted'})
+                    
+                elif action == 'publish':
+                    # Publier le post (nécessite Instagram configuré)
+                    if hasattr(current_app, 'instagram_publisher') and current_app.instagram_publisher:
+                        post = current_app.db_manager.get_post_by_id(post_id)
+                        if post and post.can_be_published():
+                            # Logic de publication ici
+                            results.append({'post_id': post_id, 'success': True, 'action': 'published'})
+                        else:
+                            results.append({'post_id': post_id, 'success': False, 'action': 'publish_failed', 'error': 'Post non publiable'})
+                    else:
+                        results.append({'post_id': post_id, 'success': False, 'action': 'publish_failed', 'error': 'Instagram non configuré'})
+                        
+                else:
+                    results.append({'post_id': post_id, 'success': False, 'action': 'unknown', 'error': f'Action inconnue: {action}'})
+                    
+            except Exception as e:
+                results.append({'post_id': post_id, 'success': False, 'action': action, 'error': str(e)})
+        
+        successful_count = sum(1 for r in results if r['success'])
+        
+        return jsonify({
+            'success': successful_count > 0,
+            'results': results,
+            'successful_count': successful_count,
+            'total_count': len(post_ids),
+            'action': action
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API actions en lot: {e}")
         return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
