@@ -1,0 +1,173 @@
+# Instagram Automation - .gitignore
+
+# ===== FICHIERS SENSIBLES (TRÈS IMPORTANT) =====
+# Variables d'environnement avec clés API
+.env
+.env.local
+.env.production
+.env.staging
+
+# Clés et tokens
+*.key
+*.pem
+config/secrets.py
+secrets/
+
+# ===== BASE DE DONNÉES =====
+# Base de données SQLite locale
+*.db
+*.sqlite
+*.sqlite3
+posts.db
+database.db
+
+# Sauvegardes de base de données
+*.db.bak
+*.sql.bak
+
+# ===== PYTHON =====
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Environments Python
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# ===== FICHIERS GÉNÉRÉS =====
+# Images générées par IA
+generated/
+uploads/
+static/temp/
+static/generated/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Cache
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ===== DÉVELOPPEMENT =====
+# IDEs et éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===== FLASK =====
+# Instance folder
+instance/
+
+# Flask session files
+flask_session/
+
+# ===== SYSTÈME =====
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ===== TEMPORAIRES =====
+# Fichiers temporaires
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Sauvegardes automatiques
+*.bak
+*.backup
+*.orig
+
+# ===== SPÉCIFIQUE AU PROJET =====
+# Tests
+.pytest_cache/
+test_uploads/
+test_generated/
+
+# Documentation générée
+docs/_build/
+site/
+
+# Fichiers de configuration locaux
+config_local.py
+local_settings.py
+
+# Données de test
+test_data/
+mock_data/
+
+# ===== RÉSEAUX ET APIs =====
+# Certificats SSL
+*.crt
+*.cert
+*.p12
+
+# Fichiers de session
+sessions/
+
+# ===== EXEMPLES À GARDER =====
+# Garder les fichiers d'exemple mais pas les vrais
+!.env.example
+!config.example.py
+!README.md

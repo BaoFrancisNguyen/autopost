@@ -1,0 +1,48 @@
+<!-- templates/edit_post.html -->
+{% extends "base.html" %}
+
+{% block title %}Modifier Post - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>
+                    Modifier le Post
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="edit-form">
+                    <div class="mb-3">
+                        <label class="form-label">Titre</label>
+                        <input type="text" class="form-control" name="title" value="{{ post.title }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="4">{{ post.description }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hashtags</label>
+                        <textarea class="form-control" name="hashtags" rows="2">{{ post.hashtags }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Programmer pour</label>
+                        <input type="datetime-local" class="form-control" name="scheduled_time" 
+                               value="{{ post.scheduled_time.strftime('%Y-%m-%dT%H:%M') if post.scheduled_time else '' }}">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="regenerate_image">
+                        <label class="form-check-label">Régénérer l'image</label>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">Annuler</a>
+                        <button type="submit" class="btn btn-primary">Sauvegarder</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

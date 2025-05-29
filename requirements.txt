@@ -1,0 +1,34 @@
+# Framework Web
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Requêtes HTTP (pour Ollama et Instagram)
+requests==2.31.0
+
+# Traitement d'images
+Pillow==10.1.0
+
+# Base de données
+# sqlite3 inclus avec Python
+
+# Utilitaires
+python-dateutil==2.8.2
+schedule==1.2.0
+
+# Production (optionnel)
+gunicorn==21.2.0
+python-dotenv==1.0.0
+
+# Intelligence Artificielle (optionnel - seulement pour les images DALL-E)
+# openai==1.3.5
+
+# Services cloud (optionnel - décommenter selon vos besoins)
+# boto3==1.34.0  # AWS S3 pour stockage d'images
+# cloudinary==1.36.0  # Cloudinary pour images
+# redis==5.0.1  # Cache et sessions
+
+# Monitoring et logs (optionnel)
+# sentry-sdk[flask]==1.38.0
+
+# Note: Ollama n'a pas besoin de dépendances Python supplémentaires
+# Il suffit d'installer Ollama sur votre système et d'utiliser l'API REST

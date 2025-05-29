@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+            <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nouveau Post
+            </a>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-primary">{{ stats.total }}</h3>
+                        <p class="card-text">Total Posts</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-success">{{ stats.published }}</h3>
+                        <p class="card-text">Publiés</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-warning">{{ stats.scheduled }}</h3>
+                        <p class="card-text">Programmés</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h3 class="text-info">{{ stats.ready_to_publish }}</h3>
+                        <p class="card-text">Prêts</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des posts -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list"></i> Posts Récents</h5>
+            </div>
+            <div class="card-body">
+                {% if posts %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Titre</th>
+                                    <th>Statut</th>
+                                    <th>Programmé</th>
+                                    <th>Créé</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for post in posts %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ post[1] }}</strong>
+                                        <br><small class="text-muted">{{ post[5][:50] }}...</small>
+                                    </td>
+                                    <td>
+                                        {% set status_class = {
+                                            'published': 'success',
+                                            'scheduled': 'warning', 
+                                            'draft': 'secondary',
+                                            'failed': 'danger',
+                                            'processing': 'info'
+                                        } %}
+                                        <span class="badge bg-{{ status_class.get(post[9], 'secondary') }}">
+                                            {{ post[9]|title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if post[8] %}
+                                            {{ post[8][:16] }}
+                                        {% else %}
+                                            <span class="text-muted">Non programmé</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ post[10][:16] if post[10] else '' }}</td>
+                                    <td>
+                                        {% if post[9] in ['draft', 'scheduled', 'failed'] %}
+                                            <a href="{{ url_for('main.publish_now', post_id=post[0]) }}" 
+                                               class="btn btn-sm btn-success me-1"
+                                               onclick="return confirm('Publier maintenant ?')">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </a>
+                                        {% endif %}
+                                        <a href="{{ url_for('main.edit_post', post_id=post[0]) }}" 
+                                           class="btn btn-sm btn-outline-primary me-1">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{{ url_for('main.delete_post', post_id=post[0]) }}" 
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Supprimer ce post ?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5>Aucun post créé</h5>
+                        <p class="text-muted">Commencez par créer votre premier post automatisé !</p>
+                        <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Créer un post
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

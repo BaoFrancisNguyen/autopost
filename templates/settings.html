@@ -1,0 +1,96 @@
+<!-- templates/settings.html -->
+{% extends "base.html" %}
+
+{% block title %}Paramètres - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <h1><i class="fas fa-cog me-3"></i>Paramètres</h1>
+        <p class="text-muted">Configuration de l'application</p>
+        
+        <!-- Statut des services -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Statut des Services</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>OpenAI (IA)</h6>
+                        {% if services_status.ai_generator %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Service actif
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Service inactif - Configurez OPENAI_API_KEY
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Instagram API</h6>
+                        {% if services_status.instagram_publisher %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Service actif
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Service inactif - Configurez les tokens Instagram
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test de connexion Instagram -->
+        {% if services_status.instagram_test %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Test Connexion Instagram</h5>
+            </div>
+            <div class="card-body">
+                {% if services_status.instagram_test.errors %}
+                    <div class="alert alert-danger">
+                        <h6>Erreurs détectées:</h6>
+                        {% for error in services_status.instagram_test.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Connexion Instagram réussie
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6>Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/health" class="btn btn-outline-info">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        Vérifier l'état de l'app
+                    </a>
+                    <button class="btn btn-outline-warning" onclick="location.reload()">
+                        <i class="fas fa-sync me-2"></i>
+                        Actualiser la page
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

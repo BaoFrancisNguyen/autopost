@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Créer un Post - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-plus"></i> Créer un nouveau post</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="create-post-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Titre du post *</label>
+                                <input type="text" class="form-control" name="title" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ton du contenu</label>
+                                <select class="form-select" name="tone">
+                                    <option value="engageant">Engageant</option>
+                                    <option value="professionnel">Professionnel</option>
+                                    <option value="décontracté">Décontracté</option>
+                                    <option value="inspirant">Inspirant</option>
+                                    <option value="humoristique">Humoristique</option>
+                                    <option value="éducatif">Éducatif</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Sujet/Topic *</label>
+                        <input type="text" class="form-control" name="topic" 
+                               placeholder="Ex: voyage en montagne, recette healthy, conseils business..." required>
+                        <div class="form-text">Utilisé pour générer automatiquement la description et les hashtags</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description de l'image IA *</label>
+                        <textarea class="form-control" name="image_prompt" rows="3" 
+                                  placeholder="Ex: Une magnifique montagne au coucher du soleil, style photographique professionnel, couleurs chaudes..." required></textarea>
+                        <div class="form-text">Décrivez précisément l'image que vous souhaitez générer</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Programmer pour (optionnel)</label>
+                        <input type="datetime-local" class="form-control" name="scheduled_time">
+                        <div class="form-text">Laisser vide pour créer un brouillon</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Instructions supplémentaires (optionnel)</label>
+                        <textarea class="form-control" name="additional_context" rows="2" 
+                                  placeholder="Ex: Mentionner notre promotion, cibler les jeunes parents..."></textarea>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-magic"></i> Créer le post avec IA
+                        </button>
+                        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Retour au dashboard
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Aperçu en temps réel (à implémenter avec JavaScript) -->
+        <div class="card mt-4" id="preview-card" style="display: none;">
+            <div class="card-header">
+                <h6><i class="fas fa-eye"></i> Aperçu du contenu généré</h6>
+            </div>
+            <div class="card-body">
+                <div id="preview-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Génération de contenu en temps réel (optionnel)
+document.getElementById('create-post-form').addEventListener('submit', function(e) {
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération en cours...';
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}

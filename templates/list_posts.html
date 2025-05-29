@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Tous les Posts - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1>
+            <i class="fas fa-list me-3"></i>Tous les Posts
+        </h1>
+        <p class="text-muted">Gérez vos publications Instagram</p>
+    </div>
+    <div class="col-md-6 text-md-end">
+        <a href="{{ url_for('main.create_post') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Nouveau Post
+        </a>
+    </div>
+</div>
+
+<!-- Filtres et recherche -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Rechercher</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="search-input" 
+                           placeholder="Titre, description, hashtags...">
+                    <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Filtrer par statut</label>
+                <select class="form-select" id="status-filter">
+                    <option value="">Tous les statuts</option>
+                    <option value="draft">Brouillons</option>
+                    <option value="scheduled">Programmés</option>
+                    <option value="published">Publiés</option>
+                    <option value="failed">Échecs</option>
+                    <option value="processing">En cours</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Trier par</label>
+                <select class="form-select" id="sort-by">
+                    <option value="created_desc">Plus récents</option>
+                    <option value="created_asc">Plus anciens</option>
+                    <option value="scheduled_desc">Prochaine publication</option>
+                    <option value="title_asc">Titre A-Z</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-outline-primary w-100" id="apply-filters">
+                    <i class="fas fa-filter me-1"></i>Appliquer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques rapides -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h3 class="text-primary">{{ stats.total or 0 }}</h3>
+                <p class="card-text">Total</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h3 class="text-success">{{ stats.published or 0 }}</h3>
+                <p class="card-text">Publiés</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h3 class="text-warning">{{ stats.scheduled or 0 }}</h3>
+                <p class="card-text">Programmés</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h3 class="text-danger">{{ stats.failed or 0 }}</h3>
+                <p class="card-text">Échecs</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions groupées -->
+{% if posts %}
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+            
