@@ -2,10 +2,10 @@
 Flask==3.0.0
 Werkzeug==3.0.1
 
-# Requêtes HTTP (pour Ollama et Instagram)
+# Requêtes HTTP (pour Ollama, Stable Diffusion et Instagram)
 requests==2.31.0
 
-# Traitement d'images
+# Traitement d'images (REQUIS pour Stable Diffusion)
 Pillow==10.1.0
 
 # Base de données
@@ -19,7 +19,11 @@ schedule==1.2.0
 gunicorn==21.2.0
 python-dotenv==1.0.0
 
-# Intelligence Artificielle (optionnel - seulement pour les images DALL-E)
+# === NOUVEAU: Stable Diffusion ===
+# Base64 pour le décodage d'images (inclus avec Python)
+# Les dépendances pour Stable Diffusion sont gérées par AUTOMATIC1111 WebUI
+
+# Intelligence Artificielle (optionnel - seulement pour OpenAI DALL-E)
 # openai==1.3.5
 
 # Services cloud (optionnel - décommenter selon vos besoins)
@@ -30,5 +34,18 @@ python-dotenv==1.0.0
 # Monitoring et logs (optionnel)
 # sentry-sdk[flask]==1.38.0
 
-# Note: Ollama n'a pas besoin de dépendances Python supplémentaires
-# Il suffit d'installer Ollama sur votre système et d'utiliser l'API REST
+# === NOTES D'INSTALLATION ===
+# 
+# Pour Stable Diffusion:
+# 1. Téléchargez AUTOMATIC1111 WebUI:
+#    git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui
+# 2. Suivez les instructions d'installation sur leur GitHub
+# 3. Démarrez avec: ./webui.sh --api (Linux/Mac) ou webui-user.bat --api (Windows)
+#
+# Pour Ollama:
+# 1. Installez Ollama: https://ollama.ai/download
+# 2. Démarrez: ollama serve
+# 3. Téléchargez un modèle: ollama pull mistral:latest
+#
+# Aucune dépendance Python supplémentaire n'est requise pour ces services
+# car ils fonctionnent via API REST !

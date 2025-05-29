@@ -1,4 +1,3 @@
-<!-- templates/settings.html -->
 {% extends "base.html" %}
 
 {% block title %}Paramètres - Instagram Automation{% endblock %}
@@ -9,38 +8,74 @@
         <h1><i class="fas fa-cog me-3"></i>Paramètres</h1>
         <p class="text-muted">Configuration de l'application</p>
         
-        <!-- Statut des services -->
+        <!-- Statut des services IA -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5>Statut des Services</h5>
+                <h5><i class="fas fa-robot me-2"></i>Services d'Intelligence Artificielle</h5>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6">
-                        <h6>OpenAI (IA)</h6>
-                        {% if services_status.ai_generator %}
+                    <!-- Ollama (Contenu) -->
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="fas fa-brain me-2"></i>Ollama (Génération de contenu)</h6>
+                        {% if services_status.content_generator %}
                             <div class="alert alert-success">
                                 <i class="fas fa-check-circle me-2"></i>
-                                Service actif
+                                Service actif - Modèle: mistral:latest
                             </div>
                         {% else %}
                             <div class="alert alert-warning">
                                 <i class="fas fa-exclamation-triangle me-2"></i>
-                                Service inactif - Configurez OPENAI_API_KEY
+                                Service inactif - Vérifiez qu'Ollama est démarré
                             </div>
                         {% endif %}
                     </div>
-                    <div class="col-md-6">
-                        <h6>Instagram API</h6>
-                        {% if services_status.instagram_publisher %}
+                    
+                    <!-- Stable Diffusion (Images) -->
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="fas fa-image me-2"></i>Stable Diffusion (Images)</h6>
+                        {% if services_status.sd_generator %}
                             <div class="alert alert-success">
                                 <i class="fas fa-check-circle me-2"></i>
-                                Service actif
+                                Service actif - Gratuit et illimité
                             </div>
                         {% else %}
                             <div class="alert alert-warning">
                                 <i class="fas fa-exclamation-triangle me-2"></i>
-                                Service inactif - Configurez les tokens Instagram
+                                Service inactif
+                                <br><small>Démarrez: ./webui.sh --api</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Hugging Face (Alternative) -->
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="fas fa-cloud me-2"></i>Hugging Face (Alternative)</h6>
+                        {% if services_status.hf_generator %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Service disponible - Gratuit en ligne
+                            </div>
+                        {% else %}
+                            <div class="alert alert-secondary">
+                                <i class="fas fa-minus-circle me-2"></i>
+                                Service désactivé
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- OpenAI (Optionnel) -->
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="fas fa-dollar-sign me-2"></i>OpenAI (Payant)</h6>
+                        {% if services_status.ai_generator %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Service actif - DALL-E disponible
+                            </div>
+                        {% else %}
+                            <div class="alert alert-secondary">
+                                <i class="fas fa-minus-circle me-2"></i>
+                                Service désactivé - Configurez OPENAI_API_KEY
                             </div>
                         {% endif %}
                     </div>
@@ -48,41 +83,141 @@
             </div>
         </div>
         
-        <!-- Test de connexion Instagram -->
-        {% if services_status.instagram_test %}
+        <!-- Statut Instagram -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5>Test Connexion Instagram</h5>
+                <h5><i class="fab fa-instagram me-2"></i>Instagram API</h5>
             </div>
             <div class="card-body">
-                {% if services_status.instagram_test.errors %}
-                    <div class="alert alert-danger">
-                        <h6>Erreurs détectées:</h6>
-                        {% for error in services_status.instagram_test.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
+                <div class="row">
+                    <div class="col-md-12">
+                        {% if services_status.instagram_publisher %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Service actif - Publication automatique disponible
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Service inactif - Configurez les tokens Instagram
+                                <br><small>Variables requises: INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_ACCOUNT_ID</small>
+                            </div>
+                        {% endif %}
                     </div>
+                </div>
+                
+                <!-- Test de connexion Instagram -->
+                {% if services_status.instagram_test %}
+                    <hr>
+                    <h6>Test de connexion</h6>
+                    {% if services_status.instagram_test.errors %}
+                        <div class="alert alert-danger">
+                            <h6>Erreurs détectées:</h6>
+                            <ul class="mb-0">
+                                {% for error in services_status.instagram_test.errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Connexion Instagram réussie
+                        </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Configuration Stable Diffusion -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-cogs me-2"></i>Configuration Stable Diffusion</h5>
+            </div>
+            <div class="card-body">
+                {% if services_status.sd_generator %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>URL:</strong> http://localhost:7860<br>
+                            <strong>Statut:</strong> <span class="text-success">Connecté</span><br>
+                            <strong>Modèle actuel:</strong> <span id="current-model">Chargement...</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Étapes par défaut:</strong> 20<br>
+                            <strong>CFG Scale:</strong> 7.0<br>
+                            <strong>Taille:</strong> 1024x1024
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Actions Stable Diffusion -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-sm btn-primary" id="test-sd-generation">
+                            <i class="fas fa-test-tube me-1"></i>Test de génération
+                        </button>
+                        <button class="btn btn-sm btn-info" id="refresh-sd-models">
+                            <i class="fas fa-sync me-1"></i>Actualiser modèles
+                        </button>
+                        <a href="http://localhost:7860" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>Interface Stable Diffusion
+                        </a>
+                    </div>
+                    
+                    <!-- Zone de test -->
+                    <div id="sd-test-results" class="mt-3" style="display: none;">
+                        <div class="alert alert-info">
+                            <div id="sd-test-status">Test en cours...</div>
+                            <div class="progress mt-2" style="display: none;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
                 {% else %}
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle me-2"></i>
-                        Connexion Instagram réussie
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-info-circle me-2"></i>Comment installer Stable Diffusion :</h6>
+                        <ol class="mb-2">
+                            <li>Téléchargez AUTOMATIC1111 WebUI :
+                                <br><code>git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui</code>
+                            </li>
+                            <li>Naviguez dans le dossier :
+                                <br><code>cd stable-diffusion-webui</code>
+                            </li>
+                            <li>Démarrez avec l'API activée :
+                                <br><code>./webui.sh --api</code> (Linux/Mac)
+                                <br><code>webui-user.bat --api</code> (Windows)
+                            </li>
+                            <li>Attendez le téléchargement du modèle par défaut</li>
+                            <li>L'interface sera accessible sur <a href="http://localhost:7860" target="_blank">http://localhost:7860</a></li>
+                        </ol>
+                        
+                        <div class="alert alert-info mt-3">
+                            <strong>💡 Première installation :</strong> Le téléchargement du modèle peut prendre du temps (4-8 GB).
+                            Une fois installé, les générations suivantes seront rapides !
+                        </div>
                     </div>
                 {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
     
+    <!-- Actions et liens utiles -->
     <div class="col-lg-4">
-        <div class="card">
+        <div class="card mb-4">
             <div class="card-header">
-                <h6>Actions</h6>
+                <h6><i class="fas fa-tools me-2"></i>Actions</h6>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
                     <a href="/health" class="btn btn-outline-info">
                         <i class="fas fa-heartbeat me-2"></i>
-                        Vérifier l'état de l'app
+                        Health Check complet
+                    </a>
+                    <a href="/debug" class="btn btn-outline-secondary">
+                        <i class="fas fa-bug me-2"></i>
+                        Informations debug
                     </a>
                     <button class="btn btn-outline-warning" onclick="location.reload()">
                         <i class="fas fa-sync me-2"></i>
@@ -91,6 +226,185 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Liens utiles -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-link me-2"></i>Liens utiles</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><a href="http://localhost:11434" target="_blank">
+                        <i class="fas fa-brain me-2"></i>Ollama
+                    </a></li>
+                    {% if services_status.sd_generator %}
+                    <li><a href="http://localhost:7860" target="_blank">
+                        <i class="fas fa-image me-2"></i>Stable Diffusion WebUI
+                    </a></li>
+                    {% endif %}
+                    <li><a href="https://huggingface.co/settings/tokens" target="_blank">
+                        <i class="fas fa-cloud me-2"></i>Tokens Hugging Face
+                    </a></li>
+                    <li><a href="https://platform.openai.com/api-keys" target="_blank">
+                        <i class="fas fa-key me-2"></i>Clés API OpenAI
+                    </a></li>
+                    <li><a href="https://developers.facebook.com/" target="_blank">
+                        <i class="fab fa-facebook me-2"></i>Meta Developers
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Statut général -->
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-info me-2"></i>Résumé</h6>
+            </div>
+            <div class="card-body">
+                {% set total_services = 5 %}
+                {% set active_services = 0 %}
+                {% if services_status.content_generator %}{% set active_services = active_services + 1 %}{% endif %}
+                {% if services_status.sd_generator %}{% set active_services = active_services + 1 %}{% endif %}
+                {% if services_status.ai_generator %}{% set active_services = active_services + 1 %}{% endif %}
+                {% if services_status.instagram_publisher %}{% set active_services = active_services + 1 %}{% endif %}
+                {% if services_status.scheduler %}{% set active_services = active_services + 1 %}{% endif %}
+                
+                <div class="text-center">
+                    <h4 class="
+                        {% if active_services >= 3 %}text-success
+                        {% elif active_services >= 2 %}text-warning
+                        {% else %}text-danger{% endif %}
+                    ">
+                        {{ active_services }}/{{ total_services }}
+                    </h4>
+                    <p class="text-muted">Services actifs</p>
+                    
+                    {% if active_services >= 3 %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Application fonctionnelle
+                        </div>
+                    {% elif active_services >= 2 %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Configuration partielle
+                        </div>
+                    {% else %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle me-2"></i>
+                            Configuration incomplète
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Test de génération Stable Diffusion
+    const testBtn = document.getElementById('test-sd-generation');
+    const testResults = document.getElementById('sd-test-results');
+    const testStatus = document.getElementById('sd-test-status');
+    
+    if (testBtn) {
+        testBtn.addEventListener('click', function() {
+            testResults.style.display = 'block';
+            testStatus.textContent = 'Test de génération en cours...';
+            testBtn.disabled = true;
+            
+            fetch('/api/test-sd-generation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prompt: 'a beautiful sunset over mountains, professional photography'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    testStatus.innerHTML = `
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Test réussi ! Image générée en ${data.generation_time || 'N/A'}s
+                        <br><small>Fichier: ${data.image_path}</small>
+                    `;
+                } else {
+                    testStatus.innerHTML = `
+                        <i class="fas fa-times-circle text-danger me-2"></i>
+                        Test échoué: ${data.error}
+                    `;
+                }
+            })
+            .catch(error => {
+                testStatus.innerHTML = `
+                    <i class="fas fa-times-circle text-danger me-2"></i>
+                    Erreur: ${error.message}
+                `;
+            })
+            .finally(() => {
+                testBtn.disabled = false;
+            });
+        });
+    }
+    
+    // Actualiser les modèles SD
+    const refreshBtn = document.getElementById('refresh-sd-models');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Actualisation...';
+            
+            fetch('/api/sd-models')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const modelElement = document.getElementById('current-model');
+                    if (modelElement && data.current_model) {
+                        modelElement.textContent = data.current_model;
+                    }
+                    
+                    // Afficher une notification
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show mt-2';
+                    alert.innerHTML = `
+                        <i class="fas fa-check-circle me-2"></i>
+                        Modèles actualisés (${data.models_count} disponibles)
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    refreshBtn.parentNode.appendChild(alert);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur actualisation modèles:', error);
+            })
+            .finally(() => {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync me-1"></i>Actualiser modèles';
+            });
+        });
+    }
+    
+    // Charger le modèle actuel au chargement de la page
+    const currentModelElement = document.getElementById('current-model');
+    if (currentModelElement) {
+        fetch('/api/sd-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.current_model) {
+                currentModelElement.textContent = data.current_model;
+            } else {
+                currentModelElement.textContent = 'Non disponible';
+            }
+        })
+        .catch(() => {
+            currentModelElement.textContent = 'Erreur de chargement';
+        });
+    }
+});
+</script>
 {% endblock %}

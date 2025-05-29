@@ -507,3 +507,310 @@ def log_api_request():
 def log_api_response(response):
     current_app.logger.info(f"API Response: {response.status_code}")
     return response
+
+# À ajouter dans routes/api.py
+
+@api_bp.route('/test-sd-generation', methods=['POST'])
+def test_sd_generation():
+    """API pour tester la génération Stable Diffusion"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({'error': 'Stable Diffusion non disponible'}), 503
+        
+        if not current_app.sd_generator.is_available:
+            return jsonify({'error': 'Stable Diffusion non accessible. Vérifiez que l\'interface web est démarrée avec --api'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        prompt = data.get('prompt', 'a beautiful landscape, professional photography, high quality')
+        
+        current_app.logger.info(f"API: Test génération SD avec prompt: {prompt}")
+        
+        import time
+        start_time = time.time()
+        
+        # Test avec paramètres rapides
+        result = current_app.sd_generator.generate_image(
+            prompt=prompt,
+            steps=10,  # Rapide pour le test
+            width=512,  # Plus petit pour être plus rapide
+            height=512
+        )
+        
+        generation_time = time.time() - start_time
+        
+        if result.success:
+            return jsonify({
+                'success': True,
+                'image_path': result.image_path,
+                'generation_time': round(generation_time, 1),
+                'prompt_used': result.prompt_used
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error_message
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API test SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/sd-models', methods=['GET'])
+def get_sd_models():
+    """API pour récupérer les modèles Stable Diffusion disponibles"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({'error': 'Stable Diffusion non disponible'}), 503
+        
+        if not current_app.sd_generator.is_available:
+            return jsonify({'error': 'Stable Diffusion non accessible'}), 503
+        
+        models = current_app.sd_generator.get_available_models()
+        current_model = current_app.sd_generator.get_current_model()
+        
+        return jsonify({
+            'success': True,
+            'models': models,
+            'current_model': current_model,
+            'models_count': len(models)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API modèles SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/sd-status', methods=['GET'])
+def get_sd_status():
+    """API pour récupérer le statut de Stable Diffusion"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({
+                'success': True,
+                'available': False,
+                'current_model': None,
+                'api_url': None
+            })
+        
+        status = current_app.sd_generator.get_status()
+        
+        return jsonify({
+            'success': True,
+            'available': status['available'],
+            'current_model': status.get('current_model'),
+            'api_url': status.get('api_url'),
+            'model_count': status.get('model_count', 0)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API statut SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/change-sd-model', methods=['POST'])
+def change_sd_model():
+    """API pour changer le modèle Stable Diffusion"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({'error': 'Stable Diffusion non disponible'}), 503
+        
+        if not current_app.sd_generator.is_available:
+            return jsonify({'error': 'Stable Diffusion non accessible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        model_name = data.get('model_name', '').strip()
+        if not model_name:
+            return jsonify({'error': 'Nom de modèle requis'}), 400
+        
+        current_app.logger.info(f"API: Changement de modèle SD vers: {model_name}")
+        
+        success = current_app.sd_generator.change_model(model_name)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Modèle changé vers: {model_name}',
+                'new_model': model_name
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Impossible de changer le modèle'
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API changement modèle SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/generate-image-sd', methods=['POST'])
+def generate_image_sd():
+    """API pour générer une image avec Stable Diffusion"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({'error': 'Stable Diffusion non disponible'}), 503
+        
+        if not current_app.sd_generator.is_available:
+            return jsonify({'error': 'Stable Diffusion non accessible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        prompt = data.get('prompt', '').strip()
+        if not prompt:
+            return jsonify({'error': 'Prompt requis'}), 400
+        
+        # Paramètres optionnels
+        negative_prompt = data.get('negative_prompt', '')
+        steps = data.get('steps', 20)
+        cfg_scale = data.get('cfg_scale', 7.0)
+        width = data.get('width', 1024)
+        height = data.get('height', 1024)
+        
+        # Validation des paramètres
+        steps = max(1, min(150, int(steps)))  # Entre 1 et 150
+        cfg_scale = max(1.0, min(20.0, float(cfg_scale)))  # Entre 1 et 20
+        width = max(64, min(2048, int(width)))  # Entre 64 et 2048
+        height = max(64, min(2048, int(height)))  # Entre 64 et 2048
+        
+        current_app.logger.info(f"API: Génération SD - Prompt: {prompt[:50]}...")
+        
+        import time
+        start_time = time.time()
+        
+        result = current_app.sd_generator.generate_image(
+            prompt=prompt,
+            negative_prompt=negative_prompt if negative_prompt else None,
+            steps=steps,
+            cfg_scale=cfg_scale,
+            width=width,
+            height=height
+        )
+        
+        generation_time = time.time() - start_time
+        
+        if result.success:
+            # Convertir le chemin en URL accessible
+            import os
+            image_filename = os.path.basename(result.image_path)
+            image_url = f"/static/generated/{image_filename}"
+            
+            return jsonify({
+                'success': True,
+                'image_path': result.image_path,
+                'image_url': image_url,
+                'prompt_used': result.prompt_used,
+                'generation_time': round(generation_time, 1),
+                'parameters': {
+                    'steps': steps,
+                    'cfg_scale': cfg_scale,
+                    'width': width,
+                    'height': height
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error_message
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API génération SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/sd-progress', methods=['GET'])
+def get_sd_progress():
+    """API pour récupérer le progrès de génération SD"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({'error': 'Stable Diffusion non disponible'}), 503
+        
+        if not current_app.sd_generator.is_available:
+            return jsonify({'progress': 0, 'eta': 0})
+        
+        progress = current_app.sd_generator.get_generation_progress()
+        
+        return jsonify({
+            'success': True,
+            'progress': progress.get('progress', 0),
+            'eta': progress.get('eta', 0),
+            'current_image': progress.get('current_image')
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API progrès SD: {e}")
+        return jsonify({'progress': 0, 'eta': 0})
+
+
+@api_bp.route('/generate-variations-sd', methods=['POST'])
+def generate_variations_sd():
+    """API pour générer des variations d'image avec SD"""
+    try:
+        if not hasattr(current_app, 'sd_generator') or not current_app.sd_generator:
+            return jsonify({'error': 'Stable Diffusion non disponible'}), 503
+        
+        if not current_app.sd_generator.is_available:
+            return jsonify({'error': 'Stable Diffusion non accessible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        prompt = data.get('prompt', '').strip()
+        if not prompt:
+            return jsonify({'error': 'Prompt requis'}), 400
+        
+        count = data.get('count', 3)
+        count = max(1, min(5, int(count)))  # Entre 1 et 5 variations
+        
+        current_app.logger.info(f"API: Génération de {count} variations SD")
+        
+        import time
+        start_time = time.time()
+        
+        variations = current_app.sd_generator.generate_variations(prompt, count)
+        
+        generation_time = time.time() - start_time
+        
+        # Convertir les résultats
+        results = []
+        for i, result in enumerate(variations):
+            if result.success:
+                import os
+                image_filename = os.path.basename(result.image_path)
+                image_url = f"/static/generated/{image_filename}"
+                
+                results.append({
+                    'success': True,
+                    'image_path': result.image_path,
+                    'image_url': image_url,
+                    'prompt_used': result.prompt_used
+                })
+            else:
+                results.append({
+                    'success': False,
+                    'error': result.error_message
+                })
+        
+        successful_count = sum(1 for r in results if r.get('success'))
+        
+        return jsonify({
+            'success': successful_count > 0,
+            'variations': results,
+            'successful_count': successful_count,
+            'total_count': count,
+            'generation_time': round(generation_time, 1)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API variations SD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500

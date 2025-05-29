@@ -254,7 +254,7 @@ def setup_logging(app):
 
 
 def init_services(app, services):
-    """Initialise tous les services de l'application"""
+    """Initialise tous les services de l'application (VERSION MISE À JOUR)"""
     
     # Base de données
     if services.get('db_manager'):
@@ -267,12 +267,13 @@ def init_services(app, services):
     else:
         app.db_manager = None
     
-    # Services IA
+    # Services IA - NOUVELLE LOGIQUE AVEC STABLE DIFFUSION
     app.content_generator = None
     app.image_generator = None
-    app.hybrid_generator = None
+    app.sd_generator = None
+    app.hf_generator = None
     
-    # Ollama en priorité si activé
+    # 1. GÉNÉRATEUR DE CONTENU (Ollama en priorité)
     if Config.USE_OLLAMA and services.get('ollama_content'):
         try:
             app.content_generator = services['ollama_content'](
@@ -280,16 +281,6 @@ def init_services(app, services):
                 model=Config.OLLAMA_MODEL
             )
             print(f"✅ Générateur de contenu Ollama initialisé - Modèle: {Config.OLLAMA_MODEL}")
-            
-            # Service hybride si OpenAI disponible pour les images
-            if services.get('hybrid_ai'):
-                app.hybrid_generator = services['hybrid_ai'](
-                    openai_api_key=Config.OPENAI_API_KEY,
-                    ollama_url=Config.OLLAMA_BASE_URL,
-                    ollama_model=Config.OLLAMA_MODEL
-                )
-                print("✅ Générateur hybride (Ollama + OpenAI) initialisé")
-            
         except Exception as e:
             print(f"❌ Erreur services Ollama: {e}")
             # Fallback vers OpenAI si disponible
@@ -299,7 +290,6 @@ def init_services(app, services):
                     print("🔄 Fallback vers OpenAI pour le contenu")
                 except Exception as e2:
                     print(f"❌ Erreur fallback OpenAI: {e2}")
-    
     elif services.get('openai_content') and Config.OPENAI_API_KEY:
         try:
             app.content_generator = services['openai_content'](Config.OPENAI_API_KEY)
@@ -307,13 +297,54 @@ def init_services(app, services):
         except Exception as e:
             print(f"❌ Erreur service OpenAI: {e}")
     
-    # Générateur d'images (OpenAI uniquement pour l'instant)
-    if services.get('openai_image') and Config.OPENAI_API_KEY:
+    # 2. GÉNÉRATEUR D'IMAGES - NOUVELLE PRIORITÉ: STABLE DIFFUSION
+    
+    # A. Stable Diffusion (priorité 1 - gratuit et local)
+    if Config.USE_STABLE_DIFFUSION:
         try:
-            app.image_generator = services['openai_image'](Config.OPENAI_API_KEY)
-            print("✅ Générateur d'images OpenAI/DALL-E initialisé")
+            from services.stable_diffusion_generator import StableDiffusionGenerator
+            app.sd_generator = StableDiffusionGenerator(Config.STABLE_DIFFUSION_URL)
+            if app.sd_generator.is_available:
+                app.image_generator = app.sd_generator  # Utiliser SD comme générateur principal
+                print("✅ Stable Diffusion configuré comme générateur d'images principal")
+            else:
+                print("⚠️  Stable Diffusion configuré mais non disponible")
         except Exception as e:
-            print(f"❌ Erreur générateur d'images: {e}")
+            print(f"❌ Erreur Stable Diffusion: {e}")
+    
+    # B. Hugging Face (priorité 2 - gratuit en ligne)
+    if Config.USE_HUGGINGFACE and not app.image_generator:
+        try:
+            from services.stable_diffusion_generator import HuggingFaceGenerator
+            app.hf_generator = HuggingFaceGenerator(Config.HUGGINGFACE_API_TOKEN)
+            app.image_generator = app.hf_generator
+            print("✅ Hugging Face configuré comme générateur d'images")
+        except Exception as e:
+            print(f"❌ Erreur Hugging Face: {e}")
+    
+    # C. OpenAI DALL-E (priorité 3 - payant mais fiable)
+    if Config.OPENAI_API_KEY and not app.image_generator:
+        try:
+            from services.ai_generator import AIImageGenerator
+            openai_generator = AIImageGenerator(Config.OPENAI_API_KEY)
+            app.image_generator = openai_generator
+            print("✅ OpenAI DALL-E configuré comme générateur d'images")
+        except Exception as e:
+            print(f"❌ Erreur générateur d'images OpenAI: {e}")
+    
+    # Résumé des services d'images
+    if app.image_generator:
+        if hasattr(app.image_generator, 'is_available'):
+            service_name = "Stable Diffusion" if app.sd_generator and app.sd_generator.is_available else "Hugging Face" if app.hf_generator else "OpenAI DALL-E"
+        else:
+            service_name = "OpenAI DALL-E"
+        print(f"🎨 Service d'images actif: {service_name}")
+    else:
+        print("⚠️  Aucun service de génération d'images disponible")
+        print("💡 Pour activer la génération d'images:")
+        print("   - Stable Diffusion: Démarrez l'interface web avec --api")
+        print("   - Hugging Face: Ajoutez HUGGINGFACE_API_TOKEN dans .env")
+        print("   - OpenAI: Ajoutez OPENAI_API_KEY dans .env")
     
     # Service Instagram
     if services.get('instagram') and Config.INSTAGRAM_ACCESS_TOKEN and Config.INSTAGRAM_ACCOUNT_ID:
@@ -328,6 +359,10 @@ def init_services(app, services):
             app.instagram_publisher = None
     else:
         app.instagram_publisher = None
+        if not Config.INSTAGRAM_ACCESS_TOKEN:
+            print("⚠️  INSTAGRAM_ACCESS_TOKEN non configuré")
+        if not Config.INSTAGRAM_ACCOUNT_ID:
+            print("⚠️  INSTAGRAM_ACCOUNT_ID non configuré")
     
     # Scheduler
     if services.get('scheduler') and app.db_manager:
@@ -352,6 +387,63 @@ def init_services(app, services):
             app.scheduler = None
     else:
         app.scheduler = None
+
+
+def import_services():
+    """Importe les services disponibles (VERSION MISE À JOUR)"""
+    services = {}
+    
+    # Service de base de données
+    try:
+        services['db_manager'] = DatabaseManager
+        print("✅ Service base de données disponible")
+    except Exception as e:
+        print(f"❌ Erreur service base de données: {e}")
+        services['db_manager'] = None
+    
+    # Services IA
+    try:
+        if Config.USE_OLLAMA:
+            from services.ollama_generator import OllamaContentGenerator
+            services['ollama_content'] = OllamaContentGenerator
+            print("✅ Service Ollama disponible")
+        else:
+            print("⚠️  Ollama désactivé dans la configuration")
+    except ImportError as e:
+        print(f"⚠️  Service Ollama non disponible: {e}")
+        services['ollama_content'] = None
+    
+    # Services OpenAI (fallback)
+    try:
+        from services.ai_generator import AIImageGenerator
+        from services.content_generator import ContentGenerator
+        services['openai_image'] = AIImageGenerator
+        services['openai_content'] = ContentGenerator
+        print("✅ Services OpenAI disponibles")
+    except ImportError as e:
+        print(f"⚠️  Services OpenAI non disponibles: {e}")
+        services['openai_image'] = None
+        services['openai_content'] = None
+    
+    # Service Instagram
+    try:
+        from services.instagram_api import InstagramPublisher
+        services['instagram'] = InstagramPublisher
+        print("✅ Service Instagram disponible")
+    except ImportError as e:
+        print(f"⚠️  Service Instagram non disponible: {e}")
+        services['instagram'] = None
+    
+    # Scheduler
+    try:
+        from utils.scheduler import PostScheduler
+        services['scheduler'] = PostScheduler
+        print("✅ Scheduler disponible")
+    except ImportError as e:
+        print(f"⚠️  Scheduler non disponible: {e}")
+        services['scheduler'] = None
+    
+    return services
 
 
 def setup_system_routes(app, services, routes_ok):

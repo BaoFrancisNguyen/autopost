@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Galerie d'Images - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1><i class="fas fa-images me-3"></i>Galerie d'Images Générées</h1>
+        <p class="text-muted">{{ total_images }} image(s) générée(s) avec l'IA</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <a href="{{ url_for('main.test_generation_page') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Générer une nouvelle image
+        </a>
+    </div>
+</div>
+
+{% if images %}
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Rechercher</label>
+                    <input type="text" class="form-control" id="search-input" 
+                           placeholder="Rechercher dans les prompts...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Trier par</label>
+                    <select class="form-select" id="sort-select">
+                        <option value="date-desc">Plus récentes</option>
+                        <option value="date-asc">Plus anciennes</option>
+                        <option value="name-asc">Nom A-Z</option>
+                        <option value="size-desc">Taille (plus grandes)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Affichage</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="view-mode" id="grid-view" checked>
+                        <label class="btn btn-outline-primary" for="grid-view">
+                            <i class="fas fa-th"></i>
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="view-mode" id="list-view">
+                        <label class="btn btn-outline-primary" for="list-view">
+                            <i class="fas fa-list"></i>
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-danger w-100" id="clear-gallery">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue grille (par défaut) -->
+    <div id="grid-container">
+        <div class="row" id="images-grid">
+            {% for image in images %}
+            <div class="col-lg-3 col-md-4 col-sm-6 mb-4 image-item" 
+                 data-name="{{ image.filename }}" 
+                 data-date="{{ image.created_time.isoformat() }}"
+                 data-size="{{ image.file_size }}"
+                 data-prompt="{{ image.prompt_hint }}">
+                <div class="card h-100">
+                    <div class="position-relative">
+                        <img src="{{ image.url }}" class="card-img-top" 
+                             style="height: 200px; object-fit: cover; cursor: pointer;"
+                             onclick="openImageModal('{{ image.url }}', '{{ image.filename }}', '{{ image.prompt_hint }}', '{{ image.created_time.strftime('%d/%m/%Y %H:%M') }}')"
+                             loading="lazy">
+                        
+                        <!-- Badge de taille -->
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <span class="badge bg-dark bg-opacity-75">
+                                {{ "%.1f"|format(image.file_size / 1024) }} KB
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body p-2">
+                        <h6 class="card-title small mb-1">{{ image.prompt_hint }}</h6>
+                        <small class="text-muted">{{ image.created_time.strftime('%d/%m %H:%M') }}</small>
+                    </div>
+                    
+                    <div class="card-footer p-2">
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="downloadImage('{{ image.url }}', '{{ image.filename }}')">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" 
+                                    onclick="useForPost('{{ image.url }}', '{{ image.prompt_hint }}')">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="deleteImage('{{ image.filename }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Vue liste -->
+    <div id="list-container" style="display: none;">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Aperçu</th>
+                            <th>Nom</th>
+                            <th>Prompt</th>
+                            <th>Date</th>
+                            <th>Taille</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="images-list">
+                        {% for image in images %}
+                        <tr class="image-item" 
+                            data-name="{{ image.filename }}" 
+                            data-date="{{ image.created_time.isoformat() }}"
+                            data-size="{{ image.file_size }}"
+                            data-prompt="{{ image.prompt_hint }}">
+                            <td>
+                                <img src="{{ image.url }}" 
+                                     style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                                     onclick="openImageModal('{{ image.url }}', '{{ image.filename }}', '{{ image.prompt_hint }}', '{{ image.created_time.strftime('%d/%m/%Y %H:%M') }}')"
+                                     loading="lazy">
+                            </td>
+                            <td>
+                                <code class="small">{{ image.filename }}</code>
+                            </td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 200px;">
+                                    {{ image.prompt_hint }}
+                                </span>
+                            </td>
+                            <td>
+                                <small>{{ image.created_time.strftime('%d/%m/%Y') }}</small><br>
+                                <small class="text-muted">{{ image.created_time.strftime('%H:%M') }}</small>
+                            </td>
+                            <td>
+                                <small>{{ "%.1f"|format(image.file_size / 1024) }} KB</small>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-primary btn-sm" 
+                                            onclick="downloadImage('{{ image.url }}', '{{ image.filename }}')"
+                                            title="Télécharger">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" 
+                                            onclick="useForPost('{{ image.url }}', '{{ image.prompt_hint }}')"
+                                            title="Utiliser pour un post">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="deleteImage('{{ image.filename }}')"
+                                            title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+{% else %}
+    <!-- Galerie vide -->
+    <div class="text-center py-5">
+        <i class="fas fa-images fa-4x text-muted mb-4"></i>
+        <h4 class="text-muted">Aucune image générée</h4>
+        <p class="text-muted mb-4">Commencez par générer votre première image avec l'IA !</p>
+        <a href="{{ url_for('main.test_generation_page') }}" class="btn btn-primary btn-lg">
+            <i class="fas fa-magic me-2"></i>Générer ma première image
+        </a>
+    </div>
+{% endif %}
+
+<!-- Modal d'aperçu d'image -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalTitle">Aperçu de l'image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" class="img-fluid rounded mb-3" style="max-height: 70vh;">
+                <div id="modalImageInfo"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="modalDownload">
+                    <i class="fas fa-download me-1"></i>Télécharger
+                </button>
+                <button type="button" class="btn btn-success" id="modalUseForPost">
+                    <i class="fas fa-plus me-1"></i>Utiliser pour un post
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentImageData = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const sortSelect = document.getElementById('sort-select');
+    const gridView = document.getElementById('grid-view');
+    const listView = document.getElementById('list-view');
+    const gridContainer = document.getElementById('grid-container');
+    const listContainer = document.getElementById('list-container');
+    
+    // Recherche
+    searchInput.addEventListener('input', filterImages);
+    
+    // Tri
+    sortSelect.addEventListener('change', sortImages);
+    
+    // Changement de vue
+    gridView.addEventListener('change', function() {
+        if (this.checked) {
+            gridContainer.style.display = 'block';
+            listContainer.style.display = 'none';
+        }
+    });
+    
+    listView.addEventListener('change', function() {
+        if (this.checked) {
+            gridContainer.style.display = 'none';
+            listContainer.style.display = 'block';
+        }
+    });
+    
+    // Nettoyage de la galerie
+    document.getElementById('clear-gallery').addEventListener('click', function() {
+        if (confirm('Êtes-vous sûr de vouloir supprimer toutes les images générées ?')) {
+            fetch('/api/clear-gallery', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erreur lors de la suppression: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Erreur: ' + error.message);
+            });
+        }
+    });
+});
+
+function filterImages() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    const items = document.querySelectorAll('.image-item');
+    
+    items.forEach(item => {
+        const prompt = item.dataset.prompt.toLowerCase();
+        const name = item.dataset.name.toLowerCase();
+        
+        if (prompt.includes(query) || name.includes(query)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function sortImages() {
+    const sortBy = document.getElementById('sort-select').value;
+    const gridItems = Array.from(document.querySelectorAll('#images-grid .image-item'));
+    const listItems = Array.from(document.querySelectorAll('#images-list .image-item'));
+    
+    const sortFunction = getSortFunction(sortBy);
+    
+    // Trier grille
+    gridItems.sort(sortFunction);
+    const gridContainer = document.getElementById('images-grid');
+    gridItems.forEach(item => gridContainer.appendChild(item));
+    
+    // Trier liste
+    listItems.sort(sortFunction);
+    const listContainer = document.getElementById('images-list');
+    listItems.forEach(item => listContainer.appendChild(item));
+}
+
+function getSortFunction(sortBy) {
+    switch (sortBy) {
+        case 'date-desc':
+            return (a, b) => new Date(b.dataset.date) - new Date(a.dataset.date);
+        case 'date-asc':
+            return (a, b) => new Date(a.dataset.date) - new Date(b.dataset.date);
+        case 'name-asc':
+            return (a, b) => a.dataset.name.localeCompare(b.dataset.name);
+        case 'size-desc':
+            return (a, b) => parseInt(b.dataset.size) - parseInt(a.dataset.size);
+        default:
+            return (a, b) => 0;
+    }
+}
+
+function openImageModal(url, filename, prompt, date) {
+    currentImageData = { url, filename, prompt, date };
+    
+    document.getElementById('modalImage').src = url;
+    document.getElementById('imageModalTitle').textContent = filename;
+    document.getElementById('modalImageInfo').innerHTML = `
+        <p><strong>Prompt:</strong> ${prompt}</p>
+        <p><strong>Créé le:</strong> ${date}</p>
+    `;
+    
+    // Configurer les boutons
+    document.getElementById('modalDownload').onclick = () => downloadImage(url, filename);
+    document.getElementById('modalUseForPost').onclick = () => useForPost(url, prompt);
+    
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
+}
+
+function downloadImage(url, filename) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+}
+
+function useForPost(imageUrl, prompt) {
+    const params = new URLSearchParams({
+        generated_image: imageUrl,
+        prompt: prompt
+    });
+    window.location.href = `/create?${params.toString()}`;
+}
+
+function deleteImage(filename) {
+    if (confirm(`Supprimer l'image ${filename} ?`)) {
+        fetch('/api/delete-image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ filename: filename })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Supprimer l'élément du DOM
+                document.querySelectorAll(`[data-name="${filename}"]`).forEach(el => el.remove());
+                
+                // Mettre à jour le compteur
+                const total = document.querySelectorAll('.image-item').length;
+                document.querySelector('p.text-muted').textContent = `${total} image(s) générée(s) avec l'IA`;
+                
+                // Si plus d'images, afficher le message vide
+                if (total === 0) {
+                    location.reload();
+                }
+            } else {
+                alert('Erreur lors de la suppression: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
+        });
+    }
+}
+</script>
+{% endblock %}

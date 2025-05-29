@@ -436,10 +436,31 @@ def settings():
     # Récupérer les informations de configuration et de statut
     try:
         services_status = {}
+        
+        # Base de données
         services_status['database'] = hasattr(current_app, 'db_manager') and current_app.db_manager is not None
-        services_status['ai_generator'] = hasattr(current_app, 'ai_generator') and current_app.ai_generator is not None
+        
+        # Générateurs IA
+        services_status['ai_generator'] = hasattr(current_app, 'image_generator') and current_app.image_generator is not None and not hasattr(current_app.image_generator, 'is_available')
         services_status['content_generator'] = hasattr(current_app, 'content_generator') and current_app.content_generator is not None
+        
+        # Stable Diffusion (NOUVEAU)
+        services_status['sd_generator'] = (
+            hasattr(current_app, 'sd_generator') and 
+            current_app.sd_generator is not None and 
+            current_app.sd_generator.is_available
+        )
+        
+        # Hugging Face
+        services_status['hf_generator'] = (
+            hasattr(current_app, 'hf_generator') and 
+            current_app.hf_generator is not None
+        )
+        
+        # Instagram
         services_status['instagram_publisher'] = hasattr(current_app, 'instagram_publisher') and current_app.instagram_publisher is not None
+        
+        # Scheduler
         services_status['scheduler'] = hasattr(current_app, 'scheduler') and current_app.scheduler is not None
         
         # Test de connexion Instagram
@@ -589,3 +610,86 @@ def inject_global_vars():
             'scheduler': hasattr(current_app, 'scheduler') and current_app.scheduler is not None,
         }
     }
+
+# À ajouter dans routes/main.py
+
+@main_bp.route('/static/generated/<filename>')
+def serve_generated_image(filename):
+    """Sert les images générées depuis le dossier generated"""
+    try:
+        from flask import send_from_directory
+        return send_from_directory('generated', filename)
+    except Exception as e:
+        current_app.logger.error(f"Erreur servir image: {e}")
+        return "Image non trouvée", 404
+
+
+@main_bp.route('/gallery')
+def image_gallery():
+    """Page de galerie des images générées"""
+    try:
+        import os
+        import glob
+        from datetime import datetime
+        
+        # Récupérer toutes les images du dossier generated
+        generated_folder = 'generated'
+        if not os.path.exists(generated_folder):
+            os.makedirs(generated_folder)
+        
+        # Patterns de fichiers d'images
+        image_patterns = ['*.png', '*.jpg', '*.jpeg', '*.gif']
+        images = []
+        
+        for pattern in image_patterns:
+            files = glob.glob(os.path.join(generated_folder, pattern))
+            for file_path in files:
+                try:
+                    # Informations sur le fichier
+                    filename = os.path.basename(file_path)
+                    stats = os.stat(file_path)
+                    created_time = datetime.fromtimestamp(stats.st_ctime)
+                    file_size = stats.st_size
+                    
+                    # Essayer d'extraire le prompt du nom de fichier
+                    prompt_hint = filename.split('_')[2:] if '_' in filename else []
+                    prompt_hint = ' '.join(prompt_hint).replace('.png', '').replace('.jpg', '').replace('_', ' ')
+                    
+                    images.append({
+                        'filename': filename,
+                        'url': f'/static/generated/{filename}',
+                        'created_time': created_time,
+                        'file_size': file_size,
+                        'prompt_hint': prompt_hint[:50] if prompt_hint else 'Image générée'
+                    })
+                except Exception as e:
+                    current_app.logger.warning(f"Erreur lecture fichier {file_path}: {e}")
+        
+        # Trier par date de création (plus récent en premier)
+        images.sort(key=lambda x: x['created_time'], reverse=True)
+        
+        return render_template('gallery.html', images=images, total_images=len(images))
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur galerie: {e}")
+        flash('Erreur lors du chargement de la galerie', 'error')
+        return redirect(url_for('main.index'))
+
+
+@main_bp.route('/test-generation')
+def test_generation_page():
+    """Page de test de génération d'images"""
+    try:
+        # Vérifier les services disponibles
+        services_available = {
+            'stable_diffusion': hasattr(current_app, 'sd_generator') and current_app.sd_generator and current_app.sd_generator.is_available,
+            'huggingface': hasattr(current_app, 'hf_generator') and current_app.hf_generator,
+            'openai': hasattr(current_app, 'image_generator') and current_app.image_generator and not hasattr(current_app.image_generator, 'is_available')
+        }
+        
+        return render_template('test_generation.html', services=services_available)
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur page test génération: {e}")
+        flash('Erreur lors du chargement de la page de test', 'error')
+        return redirect(url_for('main.index'))

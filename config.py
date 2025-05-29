@@ -17,13 +17,24 @@ class Config:
     STATIC_FOLDER = 'static'
     TEMPLATE_FOLDER = 'templates'
     
-    # Configuration Ollama (NOUVEAU)
+    # Configuration Ollama
     OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
     OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'mistral:latest')
     USE_OLLAMA = os.getenv('USE_OLLAMA', 'True').lower() == 'true'
     
     # Configuration OpenAI (optionnel maintenant)
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')  # Optionnel si USE_OLLAMA=True
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    
+    # Configuration Stable Diffusion (NOUVEAU)
+    USE_STABLE_DIFFUSION = os.getenv('USE_STABLE_DIFFUSION', 'True').lower() == 'true'
+    STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://localhost:7862')
+    SD_DEFAULT_STEPS = int(os.getenv('SD_DEFAULT_STEPS', '20'))
+    SD_DEFAULT_CFG_SCALE = float(os.getenv('SD_DEFAULT_CFG_SCALE', '7.0'))
+    SD_DEFAULT_SIZE = os.getenv('SD_DEFAULT_SIZE', '1024x1024')
+    
+    # Configuration Hugging Face (alternative gratuite)
+    HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
+    USE_HUGGINGFACE = os.getenv('USE_HUGGINGFACE', 'False').lower() == 'true'
     
     # Configuration Instagram
     INSTAGRAM_ACCESS_TOKEN = os.getenv('INSTAGRAM_ACCESS_TOKEN')
@@ -71,6 +82,13 @@ class Config:
             print(f"   🧠 Modèle: {Config.OLLAMA_MODEL}")
             print(f"   🌐 URL: {Config.OLLAMA_BASE_URL}")
         
+        print(f"   🎨 Stable Diffusion: {'✅ Activé' if Config.USE_STABLE_DIFFUSION else '❌ Désactivé'}")
+        if Config.USE_STABLE_DIFFUSION:
+            print(f"   🖼️  URL: {Config.STABLE_DIFFUSION_URL}")
+            print(f"   ⚙️  Étapes par défaut: {Config.SD_DEFAULT_STEPS}")
+        
+        print(f"   🤗 Hugging Face: {'✅ Activé' if Config.USE_HUGGINGFACE else '❌ Désactivé'}")
+    
     @staticmethod
     def validate_config():
         """Valide que toutes les configurations nécessaires sont présentes"""
@@ -93,21 +111,33 @@ class Config:
                     missing_configs.append(f'Ollama non accessible sur {Config.OLLAMA_BASE_URL}')
             except Exception as e:
                 missing_configs.append(f'Erreur connexion Ollama: {str(e)}')
-        else:
-            # Si Ollama désactivé, OpenAI devient obligatoire pour le contenu
-            if not Config.OPENAI_API_KEY:
-                missing_configs.append('OPENAI_API_KEY (requis si USE_OLLAMA=False)')
         
-        # OpenAI optionnel mais recommandé pour les images
+        # Validation Stable Diffusion si activé
+        if Config.USE_STABLE_DIFFUSION:
+            try:
+                import requests
+                response = requests.get(f"{Config.STABLE_DIFFUSION_URL}/sdapi/v1/options", timeout=5)
+                if response.status_code == 200:
+                    print(f"✅ Stable Diffusion connecté sur {Config.STABLE_DIFFUSION_URL}")
+                else:
+                    warnings.append(f'Stable Diffusion non accessible sur {Config.STABLE_DIFFUSION_URL}')
+            except Exception as e:
+                warnings.append(f'Stable Diffusion non accessible: {str(e)}')
+        
+        # OpenAI optionnel maintenant
         if not Config.OPENAI_API_KEY:
-            warnings.append('OPENAI_API_KEY non configuré - Génération d\'images DALL-E indisponible')
+            warnings.append('OPENAI_API_KEY non configuré - DALL-E indisponible')
         
-        # Instagram toujours nécessaire pour la publication
+        # Hugging Face optionnel
+        if Config.USE_HUGGINGFACE and not Config.HUGGINGFACE_API_TOKEN:
+            warnings.append('HUGGINGFACE_API_TOKEN non configuré - Limites de taux plus strictes')
+        
+        # Instagram pour la publication
         if not Config.INSTAGRAM_ACCESS_TOKEN:
-            missing_configs.append('INSTAGRAM_ACCESS_TOKEN')
+            warnings.append('INSTAGRAM_ACCESS_TOKEN non configuré - Pas de publication automatique')
         
         if not Config.INSTAGRAM_ACCOUNT_ID:
-            missing_configs.append('INSTAGRAM_ACCOUNT_ID')
+            warnings.append('INSTAGRAM_ACCOUNT_ID non configuré - Pas de publication automatique')
         
         # Affichage des résultats
         if missing_configs:
@@ -125,10 +155,15 @@ class Config:
         elif not missing_configs:
             print("✅ Configuration de base valide (avec avertissements)")
         
-        print(f"\n💡 Pour utiliser Ollama, assurez-vous que:")
-        print(f"   1. Ollama est installé et en cours d'exécution")
-        print(f"   2. Le modèle {Config.OLLAMA_MODEL} est téléchargé")
-        print(f"   3. Ollama écoute sur {Config.OLLAMA_BASE_URL}")
+        # Instructions pour Stable Diffusion
+        if Config.USE_STABLE_DIFFUSION:
+            print(f"\n💡 Pour utiliser Stable Diffusion :")
+            print(f"   1. Téléchargez AUTOMATIC1111 WebUI:")
+            print(f"      git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui")
+            print(f"   2. Démarrez avec l'API activée:")
+            print(f"      ./webui.sh --api")
+            print(f"      ou: python launch.py --api")
+            print(f"   3. L'interface sera accessible sur {Config.STABLE_DIFFUSION_URL}")
         
         return len(missing_configs) == 0
     
@@ -145,10 +180,23 @@ class Config:
             'use_ollama': Config.USE_OLLAMA,
             'ollama_url': Config.OLLAMA_BASE_URL,
             'ollama_model': Config.OLLAMA_MODEL,
+            'use_stable_diffusion': Config.USE_STABLE_DIFFUSION,
+            'stable_diffusion_url': Config.STABLE_DIFFUSION_URL,
+            'use_huggingface': Config.USE_HUGGINGFACE,
             'openai_available': bool(Config.OPENAI_API_KEY),
             'content_service': 'Ollama' if Config.USE_OLLAMA else 'OpenAI',
-            'image_service': 'OpenAI DALL-E' if Config.OPENAI_API_KEY else 'Non disponible'
+            'image_service': 'Stable Diffusion' if Config.USE_STABLE_DIFFUSION else 'Hugging Face' if Config.USE_HUGGINGFACE else 'OpenAI DALL-E' if Config.OPENAI_API_KEY else 'Non disponible'
         }
+    
+    @staticmethod
+    def get_sd_size_tuple():
+        """Convertit la taille SD en tuple (width, height)"""
+        try:
+            width, height = Config.SD_DEFAULT_SIZE.split('x')
+            return int(width), int(height)
+        except:
+            return 1024, 1024
+
 
 class DevelopmentConfig(Config):
     """Configuration pour le développement"""
@@ -161,6 +209,7 @@ class ProductionConfig(Config):
     
     # En production, utiliser des URLs externes si nécessaire
     OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')  # Docker
+    STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://stable-diffusion:7860')  # Docker
     
     @staticmethod
     def init_app(app):
