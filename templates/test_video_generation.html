@@ -1,0 +1,756 @@
+<!-- templates/test_video_generation.html -->
+{% extends "base.html" %}
+
+{% block title %}Test Génération Vidéo - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <h1><i class="fas fa-video me-3"></i>Test de Génération de Vidéos</h1>
+        <p class="text-muted">Testez Stable Video Diffusion pour créer des vidéos animées</p>
+        
+        <!-- Tabs pour différents types de génération -->
+        <ul class="nav nav-tabs mb-4" id="videoTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="image-to-video-tab" data-bs-toggle="tab" 
+                        data-bs-target="#image-to-video" type="button" role="tab">
+                    <i class="fas fa-image me-2"></i>Image → Vidéo
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="text-to-video-tab" data-bs-toggle="tab" 
+                        data-bs-target="#text-to-video" type="button" role="tab">
+                    <i class="fas fa-magic me-2"></i>Texte → Vidéo
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="videoTabContent">
+            <!-- Tab Image vers Vidéo -->
+            <div class="tab-pane fade show active" id="image-to-video" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-image me-2"></i>Générer une vidéo depuis une image</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="image-to-video-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Image source</label>
+                                        <select class="form-select" id="source-image" required>
+                                            <option value="">Sélectionner une image...</option>
+                                        </select>
+                                        <div class="form-text">Images de votre galerie générée</div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Durée (secondes)</label>
+                                        <input type="range" class="form-range" id="duration" 
+                                               min="1" max="10" value="3">
+                                        <small class="text-muted">Valeur: <span id="duration-value">3</span>s</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">FPS (Images par seconde)</label>
+                                        <select class="form-select" id="fps">
+                                            <option value="6">6 FPS (Lent)</option>
+                                            <option value="8" selected>8 FPS (Standard)</option>
+                                            <option value="12">12 FPS (Fluide)</option>
+                                            <option value="16">16 FPS (Très fluide)</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Intensité du mouvement</label>
+                                        <input type="range" class="form-range" id="motion-strength" 
+                                               min="0.1" max="1.0" step="0.1" value="0.7">
+                                        <small class="text-muted">Valeur: <span id="motion-value">0.7</span></small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Aperçu de l'image sélectionnée -->
+                            <div id="image-preview" class="text-center mb-3" style="display: none;">
+                                <img id="preview-img" class="img-fluid rounded" style="max-height: 200px;">
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-play me-2"></i>Générer la vidéo
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab Texte vers Vidéo -->
+            <div class="tab-pane fade" id="text-to-video" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-magic me-2"></i>Générer une vidéo depuis un prompt</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="text-to-video-form">
+                            <div class="mb-3">
+                                <label class="form-label">Description de la vidéo</label>
+                                <textarea class="form-control" id="video-prompt" rows="3" 
+                                          placeholder="Ex: a beautiful sunset over calm ocean waves, cinematic, peaceful atmosphere"
+                                          required>a serene forest with gentle wind moving through trees, cinematic lighting, peaceful nature scene</textarea>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Durée (secondes)</label>
+                                        <input type="range" class="form-range" id="text-duration" 
+                                               min="1" max="10" value="3">
+                                        <small class="text-muted">Valeur: <span id="text-duration-value">3</span>s</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Largeur</label>
+                                        <select class="form-select" id="video-width">
+                                            <option value="512">512px</option>
+                                            <option value="768">768px</option>
+                                            <option value="1024" selected>1024px</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Hauteur</label>
+                                        <select class="form-select" id="video-height">
+                                            <option value="512">512px</option>
+                                            <option value="576" selected>576px (16:9)</option>
+                                            <option value="768">768px</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-magic me-2"></i>Générer image + vidéo
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Zone de résultat -->
+        <div id="result-area" class="mt-4" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-video me-2"></i>Résultat</h5>
+                </div>
+                <div class="card-body">
+                    <div id="generation-status" class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-3"></div>
+                            <div>Génération en cours... Cela peut prendre 1-3 minutes</div>
+                        </div>
+                        <div class="progress mt-2">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="result-content" style="display: none;">
+                        <div class="text-center">
+                            <!-- Aperçu vidéo -->
+                            <video id="generated-video" class="img-fluid rounded mb-3" 
+                                   style="max-height: 400px;" controls>
+                                Votre navigateur ne supporte pas la vidéo HTML5.
+                            </video>
+                            
+                            <div class="mt-3">
+                                <p><strong>Temps de génération:</strong> <span id="generation-time">-</span></p>
+                                <p><strong>Durée vidéo:</strong> <span id="video-duration">-</span></p>
+                                <p><strong>Paramètres:</strong> <span id="video-params">-</span></p>
+                                
+                                <div class="btn-group mt-2">
+                                    <button class="btn btn-outline-primary" id="download-video-btn">
+                                        <i class="fas fa-download me-1"></i>Télécharger
+                                    </button>
+                                    <button class="btn btn-outline-success" id="use-for-post-btn">
+                                        <i class="fas fa-plus me-1"></i>Utiliser pour un post
+                                    </button>
+                                    <button class="btn btn-outline-info" id="open-gallery-btn">
+                                        <i class="fas fa-film me-1"></i>Voir galerie vidéos
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Barre latérale -->
+    <div class="col-lg-4">
+        <!-- Statut SVD -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-info me-2"></i>Statut Stable Video Diffusion</h6>
+            </div>
+            <div class="card-body">
+                <div id="svd-status-content">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2"></div>
+                        <span>Vérification du statut...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Queue SVD -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-list me-2"></i>File d'attente</h6>
+            </div>
+            <div class="card-body">
+                <div id="queue-status">
+                    <p class="text-muted">Chargement...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Exemples de prompts -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-lightbulb me-2"></i>Exemples de prompts vidéo</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <button class="list-group-item list-group-item-action example-prompt" 
+                            data-prompt="ocean waves gently rolling onto sandy beach, golden hour lighting, peaceful seascape">
+                        <strong>Vagues océan</strong>
+                        <br><small class="text-muted">Plage paisible, lumière dorée</small>
+                    </button>
+                    
+                    <button class="list-group-item list-group-item-action example-prompt"
+                            data-prompt="clouds moving slowly across blue sky, time-lapse style, serene atmosphere">
+                        <strong>Nuages mouvants</strong>
+                        <br><small class="text-muted">Ciel bleu, time-lapse</small>
+                    </button>
+                    
+                    <button class="list-group-item list-group-item-action example-prompt"
+                            data-prompt="campfire flickering in dark forest, warm orange glow, cozy atmosphere">
+                        <strong>Feu de camp</strong>
+                        <br><small class="text-muted">Forêt sombre, lueur chaleureuse</small>
+                    </button>
+                    
+                    <button class="list-group-item list-group-item-action example-prompt"
+                            data-prompt="coffee steam rising from cup, morning sunlight, cafe atmosphere">
+                        <strong>Vapeur de café</strong>
+                        <br><small class="text-muted">Ambiance café matinal</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-tools me-2"></i>Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-info" id="refresh-images">
+                        <i class="fas fa-sync me-2"></i>Actualiser images
+                    </button>
+                    <a href="/gallery" class="btn btn-outline-primary">
+                        <i class="fas fa-images me-2"></i>Galerie images
+                    </a>
+                    <button class="btn btn-outline-success" id="open-video-gallery">
+                        <i class="fas fa-film me-2"></i>Galerie vidéos
+                    </button>
+                    <a href="/settings" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog me-2"></i>Paramètres
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Éléments DOM
+    const imageToVideoForm = document.getElementById('image-to-video-form');
+    const textToVideoForm = document.getElementById('text-to-video-form');
+    const sourceImageSelect = document.getElementById('source-image');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const resultArea = document.getElementById('result-area');
+    const generationStatus = document.getElementById('generation-status');
+    const resultContent = document.getElementById('result-content');
+    
+    // Ranges avec mise à jour des valeurs
+    const durationRange = document.getElementById('duration');
+    const durationValue = document.getElementById('duration-value');
+    const textDurationRange = document.getElementById('text-duration');
+    const textDurationValue = document.getElementById('text-duration-value');
+    const motionRange = document.getElementById('motion-strength');
+    const motionValue = document.getElementById('motion-value');
+    
+    // Initialisation
+    checkSVDStatus();
+    loadAvailableImages();
+    setupEventListeners();
+    
+    function setupEventListeners() {
+        // Mise à jour des valeurs des ranges
+        durationRange.addEventListener('input', function() {
+            durationValue.textContent = this.value;
+        });
+        
+        textDurationRange.addEventListener('input', function() {
+            textDurationValue.textContent = this.value;
+        });
+        
+        motionRange.addEventListener('input', function() {
+            motionValue.textContent = this.value;
+        });
+        
+        // Aperçu de l'image sélectionnée
+        sourceImageSelect.addEventListener('change', function() {
+            if (this.value) {
+                previewImg.src = this.value;
+                imagePreview.style.display = 'block';
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        });
+        
+        // Soumission des formulaires
+        imageToVideoForm.addEventListener('submit', handleImageToVideo);
+        textToVideoForm.addEventListener('submit', handleTextToVideo);
+        
+        // Exemples de prompts
+        document.querySelectorAll('.example-prompt').forEach(button => {
+            button.addEventListener('click', function() {
+                document.getElementById('video-prompt').value = this.dataset.prompt;
+                // Basculer vers l'onglet texte vers vidéo
+                document.getElementById('text-to-video-tab').click();
+            });
+        });
+        
+        // Actions
+        document.getElementById('refresh-images').addEventListener('click', loadAvailableImages);
+        document.getElementById('open-video-gallery').addEventListener('click', openVideoGallery);
+    }
+    
+    function checkSVDStatus() {
+        const statusContent = document.getElementById('svd-status-content');
+        const queueStatus = document.getElementById('queue-status');
+        
+        fetch('/api/svd-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.available) {
+                statusContent.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        SVD accessible
+                        <br><small>API: ${data.api_url}</small>
+                    </div>
+                `;
+                
+                queueStatus.innerHTML = `
+                    <p><strong>En cours:</strong> ${data.queue_running || 0}</p>
+                    <p><strong>En attente:</strong> ${data.queue_pending || 0}</p>
+                    <p><small>Durée max: ${data.max_duration || 10}s</small></p>
+                `;
+            } else {
+                statusContent.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        SVD non disponible
+                        <br><small>Vérifiez ComfyUI + SVD</small>
+                    </div>
+                `;
+                queueStatus.innerHTML = '<p class="text-muted">Service indisponible</p>';
+            }
+        })
+        .catch(error => {
+            statusContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-times-circle me-2"></i>
+                    Erreur de connexion
+                </div>
+            `;
+        });
+    }
+    
+    function loadAvailableImages() {
+        // Charger les images de la galerie
+        fetch('/api/stats')  // Ou créer une route dédiée
+        .then(response => response.json())
+        .then(data => {
+            // Simuler le chargement d'images depuis la galerie
+            // Dans un vrai cas, vous créeriez une API dédiée
+            sourceImageSelect.innerHTML = '<option value="">Sélectionner une image...</option>';
+            
+            // Ajouter quelques exemples (à remplacer par de vraies images)
+            const exampleImages = [
+                { url: '/static/generated/example1.png', name: 'Paysage montagne' },
+                { url: '/static/generated/example2.png', name: 'Portrait artistique' },
+                { url: '/static/generated/example3.png', name: 'Nature abstraite' }
+            ];
+            
+            exampleImages.forEach(img => {
+                const option = document.createElement('option');
+                option.value = img.url;
+                option.textContent = img.name;
+                sourceImageSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Erreur chargement images:', error);
+        });
+    }
+    
+    function handleImageToVideo(e) {
+        e.preventDefault();
+        
+        const imagePath = sourceImageSelect.value;
+        if (!imagePath) {
+            alert('Veuillez sélectionner une image');
+            return;
+        }
+        
+        const data = {
+            image_path: imagePath,
+            duration_seconds: parseInt(durationRange.value),
+            fps: parseInt(document.getElementById('fps').value),
+            motion_strength: parseFloat(motionRange.value),
+            seed: -1
+        };
+        
+        generateVideo('/api/generate-video-from-image', data);
+    }
+    
+    function handleTextToVideo(e) {
+        e.preventDefault();
+        
+        const prompt = document.getElementById('video-prompt').value.trim();
+        if (!prompt) {
+            alert('Veuillez entrer une description');
+            return;
+        }
+        
+        const data = {
+            prompt: prompt,
+            duration_seconds: parseInt(textDurationRange.value),
+            width: parseInt(document.getElementById('video-width').value),
+            height: parseInt(document.getElementById('video-height').value)
+        };
+        
+        generateVideo('/api/generate-video-from-text', data);
+    }
+    
+    function generateVideo(endpoint, data) {
+        // Afficher la zone de résultat
+        resultArea.style.display = 'block';
+        generationStatus.style.display = 'block';
+        resultContent.style.display = 'none';
+        
+        // Scroll vers les résultats
+        resultArea.scrollIntoView({ behavior: 'smooth' });
+        
+        // Désactiver les boutons
+        const submitBtns = document.querySelectorAll('button[type="submit"]');
+        submitBtns.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Génération...';
+        });
+        
+        // Simuler une barre de progression
+        let progress = 0;
+        const progressBar = generationStatus.querySelector('.progress-bar');
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = progress + '%';
+        }, 2000);
+        
+        // Envoyer la requête
+        fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            
+            if (data.success) {
+                showVideoResult(data);
+            } else {
+                showError(data.error || 'Erreur inconnue');
+            }
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            console.error('Erreur:', error);
+            showError('Erreur de connexion: ' + error.message);
+        })
+        .finally(() => {
+            // Réactiver les boutons
+            submitBtns.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = btn.innerHTML.includes('image') ? 
+                    '<i class="fas fa-play me-2"></i>Générer la vidéo' :
+                    '<i class="fas fa-magic me-2"></i>Générer image + vidéo';
+            });
+        });
+    }
+    
+    function showVideoResult(data) {
+        generationStatus.style.display = 'none';
+        resultContent.style.display = 'block';
+        
+        // Afficher la vidéo
+        const video = document.getElementById('generated-video');
+        video.src = data.video_url;
+        video.load();
+        
+        // Informations
+        document.getElementById('generation-time').textContent = 
+            data.generation_time ? `${data.generation_time}s` : 'Non disponible';
+        
+        document.getElementById('video-duration').textContent = 
+            data.parameters?.duration ? `${data.parameters.duration}s` : 'Non disponible';
+        
+        const params = data.parameters || {};
+        let paramText = [];
+        if (params.fps) paramText.push(`${params.fps} FPS`);
+        if (params.motion_strength) paramText.push(`Motion: ${params.motion_strength}`);
+        if (params.width && params.height) paramText.push(`${params.width}x${params.height}`);
+        
+        document.getElementById('video-params').textContent = 
+            paramText.length > 0 ? paramText.join(', ') : 'Paramètres par défaut';
+        
+        // Boutons d'action
+        setupVideoActions(data);
+    }
+    
+    function setupVideoActions(data) {
+        const downloadBtn = document.getElementById('download-video-btn');
+        const useForPostBtn = document.getElementById('use-for-post-btn');
+        const galleryBtn = document.getElementById('open-gallery-btn');
+        
+        downloadBtn.onclick = function() {
+            const link = document.createElement('a');
+            link.href = data.video_url;
+            link.download = `generated_video_${Date.now()}.mp4`;
+            link.click();
+        };
+        
+        useForPostBtn.onclick = function() {
+            // Rediriger vers la création de post avec la vidéo
+            const params = new URLSearchParams({
+                generated_video: data.video_path,
+                media_type: 'video',
+                prompt: data.source_image || data.prompt || ''
+            });
+            window.location.href = `/create?${params.toString()}`;
+        };
+        
+        galleryBtn.onclick = openVideoGallery;
+    }
+    
+    function showError(errorMessage) {
+        generationStatus.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Erreur:</strong> ${errorMessage}
+            </div>
+        `;
+    }
+    
+    function openVideoGallery() {
+        // Créer et afficher une modale de galerie vidéo
+        fetch('/api/video-gallery')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showVideoGalleryModal(data.videos);
+            } else {
+                alert('Erreur lors du chargement de la galerie');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur galerie:', error);
+            alert('Erreur de connexion');
+        });
+    }
+    
+    function showVideoGalleryModal(videos) {
+        // Créer la modale dynamiquement
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.id = 'videoGalleryModal';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-film me-2"></i>Galerie Vidéos (${videos.length})
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${videos.length === 0 ? 
+                            '<p class="text-center text-muted">Aucune vidéo générée</p>' :
+                            `<div class="row">
+                                ${videos.map(video => `
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card">
+                                            <video class="card-img-top" style="height: 200px; object-fit: cover;" controls>
+                                                <source src="${video.url}" type="video/mp4">
+                                            </video>
+                                            <div class="card-body p-2">
+                                                <h6 class="card-title small">${video.filename}</h6>
+                                                <small class="text-muted">
+                                                    ${new Date(video.created_time).toLocaleDateString()}
+                                                    <br>${Math.round(video.file_size / 1024)} KB
+                                                </small>
+                                                <div class="btn-group w-100 mt-2">
+                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                            onclick="downloadVideo('${video.url}', '${video.filename}')">
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" 
+                                                            onclick="deleteVideo('${video.filename}')">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>`
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        
+        // Nettoyer après fermeture
+        modal.addEventListener('hidden.bs.modal', function() {
+            document.body.removeChild(modal);
+        });
+        
+        bsModal.show();
+    }
+    
+    // Actualiser le statut SVD périodiquement
+    setInterval(checkSVDStatus, 30000); // Toutes les 30 secondes
+});
+
+// Fonctions globales pour la galerie
+function downloadVideo(url, filename) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+}
+
+function deleteVideo(filename) {
+    if (confirm(`Supprimer la vidéo ${filename} ?`)) {
+        fetch('/api/delete-video', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ filename: filename })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fermer la modale et rouvrir la galerie
+                bootstrap.Modal.getInstance(document.getElementById('videoGalleryModal')).hide();
+                setTimeout(() => {
+                    document.getElementById('open-video-gallery').click();
+                }, 500);
+            } else {
+                alert('Erreur lors de la suppression: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erreur: ' + error.message);
+        });
+    }
+}
+</script>
+
+<style>
+.nav-tabs .nav-link {
+    border-bottom: 2px solid transparent;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: #0d6efd;
+    background-color: transparent;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+}
+
+.form-range {
+    margin-bottom: 0.5rem;
+}
+
+.progress {
+    height: 8px;
+}
+
+.card video {
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+#image-preview img {
+    border: 2px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+.example-prompt {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.example-prompt:hover {
+    background-color: #f8f9fa;
+}
+
+.btn-group .btn {
+    font-size: 0.875rem;
+}
+
+.modal-xl .modal-body {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}

@@ -1048,3 +1048,257 @@ def bulk_actions():
     except Exception as e:
         current_app.logger.error(f"Erreur API actions en lot: {e}")
         return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+    
+
+# api pour les vidéos
+
+@api_bp.route('/generate-video-from-image', methods=['POST'])
+def generate_video_from_image():
+    """API pour générer une vidéo depuis une image"""
+    try:
+        if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+            return jsonify({'error': 'Stable Video Diffusion non disponible'}), 503
+        
+        if not current_app.svd_generator.is_available:
+            return jsonify({'error': 'SVD non accessible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        image_path = data.get('image_path', '').strip()
+        if not image_path:
+            return jsonify({'error': 'Chemin image requis'}), 400
+        
+        # Paramètres optionnels
+        duration = int(data.get('duration_seconds', 3))
+        fps = int(data.get('fps', 8))
+        motion_strength = float(data.get('motion_strength', 0.7))
+        seed = int(data.get('seed', -1))
+        
+        # Validation
+        duration = max(1, min(10, duration))  # 1-10 secondes
+        fps = max(4, min(30, fps))  # 4-30 FPS
+        motion_strength = max(0.1, min(1.0, motion_strength))
+        
+        current_app.logger.info(f"API: Génération vidéo depuis image {image_path}")
+        
+        import time
+        start_time = time.time()
+        
+        result = current_app.svd_generator.generate_video_from_image(
+            image_path=image_path,
+            duration_seconds=duration,
+            fps=fps,
+            motion_strength=motion_strength,
+            seed=seed
+        )
+        
+        generation_time = time.time() - start_time
+        
+        if result.success:
+            # Convertir le chemin en URL accessible
+            import os
+            video_filename = os.path.basename(result.video_path)
+            video_url = f"/static/generated/videos/{video_filename}"
+            
+            return jsonify({
+                'success': True,
+                'video_path': result.video_path,
+                'video_url': video_url,
+                'source_image': image_path,
+                'generation_time': round(generation_time, 1),
+                'parameters': {
+                    'duration': duration,
+                    'fps': fps,
+                    'motion_strength': motion_strength,
+                    'seed': seed
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error_message
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API génération vidéo: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/generate-video-from-text', methods=['POST'])
+def generate_video_from_text():
+    """API pour générer une vidéo depuis un prompt texte"""
+    try:
+        if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+            return jsonify({'error': 'Stable Video Diffusion non disponible'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        prompt = data.get('prompt', '').strip()
+        if not prompt:
+            return jsonify({'error': 'Prompt requis'}), 400
+        
+        duration = int(data.get('duration_seconds', 3))
+        width = int(data.get('width', 1024))
+        height = int(data.get('height', 576))
+        
+        # Validation
+        duration = max(1, min(10, duration))
+        width = max(512, min(1024, width))
+        height = max(512, min(1024, height))
+        
+        current_app.logger.info(f"API: Génération vidéo depuis texte: {prompt[:50]}...")
+        
+        import time
+        start_time = time.time()
+        
+        result = current_app.svd_generator.generate_video_from_text(
+            prompt=prompt,
+            duration_seconds=duration,
+            width=width,
+            height=height
+        )
+        
+        generation_time = time.time() - start_time
+        
+        if result.success:
+            import os
+            video_filename = os.path.basename(result.video_path)
+            video_url = f"/static/generated/videos/{video_filename}"
+            
+            return jsonify({
+                'success': True,
+                'video_path': result.video_path,
+                'video_url': video_url,
+                'prompt': prompt,
+                'generation_time': round(generation_time, 1),
+                'parameters': {
+                    'duration': duration,
+                    'width': width,
+                    'height': height
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error_message
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API génération vidéo texte: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/svd-status', methods=['GET'])
+def get_svd_status():
+    """API pour récupérer le statut de SVD"""
+    try:
+        if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+            return jsonify({
+                'success': True,
+                'available': False,
+                'api_url': None
+            })
+        
+        status = current_app.svd_generator.get_status()
+        queue_status = current_app.svd_generator.get_queue_status()
+        
+        return jsonify({
+            'success': True,
+            'available': status['available'],
+            'api_url': status.get('api_url'),
+            'queue_running': len(queue_status.get('queue_running', [])),
+            'queue_pending': len(queue_status.get('queue_pending', [])),
+            'supported_formats': status.get('supported_formats', []),
+            'max_duration': status.get('max_duration', 10)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API statut SVD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/video-gallery', methods=['GET'])
+def get_video_gallery():
+    """API pour récupérer la galerie de vidéos"""
+    try:
+        import glob
+        import os
+        from datetime import datetime
+        
+        videos = []
+        video_folder = 'generated/videos'
+        
+        if os.path.exists(video_folder):
+            video_patterns = ['*.mp4', '*.webm', '*.avi']
+            
+            for pattern in video_patterns:
+                files = glob.glob(os.path.join(video_folder, pattern))
+                for file_path in files:
+                    try:
+                        filename = os.path.basename(file_path)
+                        stats = os.stat(file_path)
+                        created_time = datetime.fromtimestamp(stats.st_ctime)
+                        file_size = stats.st_size
+                        
+                        videos.append({
+                            'filename': filename,
+                            'url': f'/static/generated/videos/{filename}',
+                            'created_time': created_time.isoformat(),
+                            'file_size': file_size,
+                            'duration': None,  # Pourrait être extrait avec ffmpeg
+                            'type': 'video'
+                        })
+                    except Exception as e:
+                        current_app.logger.warning(f"Erreur lecture vidéo {file_path}: {e}")
+        
+        # Trier par date (plus récent en premier)
+        videos.sort(key=lambda x: x['created_time'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'videos': videos,
+            'total_count': len(videos)
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API galerie vidéos: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/delete-video', methods=['POST'])
+def delete_video():
+    """API pour supprimer une vidéo"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON requises'}), 400
+        
+        filename = data.get('filename', '').strip()
+        if not filename:
+            return jsonify({'error': 'Nom de fichier requis'}), 400
+        
+        # Construire le chemin de la vidéo
+        video_path = os.path.join('generated', 'videos', filename)
+        
+        # Vérifier que le fichier existe et le supprimer
+        if os.path.exists(video_path):
+            try:
+                os.remove(video_path)
+                current_app.logger.info(f"Vidéo supprimée: {filename}")
+                return jsonify({
+                    'success': True,
+                    'message': f'Vidéo {filename} supprimée avec succès'
+                })
+            except Exception as e:
+                current_app.logger.error(f"Erreur suppression vidéo {filename}: {e}")
+                return jsonify({'error': f'Impossible de supprimer le fichier: {str(e)}'}), 500
+        else:
+            return jsonify({'error': 'Fichier non trouvé'}), 404
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur API suppression vidéo: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500

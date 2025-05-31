@@ -13,6 +13,9 @@ import argparse
 import subprocess
 import platform
 from flask import Flask, jsonify
+import json
+from datetime import datetime
+from config import Config
 
 # Ajouter le répertoire courant au path Python
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,30 +35,30 @@ except ImportError as e:
 
 
 def import_services():
-    """Importe les services disponibles"""
+    """Importe tous les services disponibles (VERSION COMPLÈTE)"""
     services = {}
     
     # Service de base de données
     try:
+        from database import DatabaseManager
         services['db_manager'] = DatabaseManager
         print("✅ Service base de données disponible")
-    except Exception as e:
+    except ImportError as e:
         print(f"❌ Erreur service base de données: {e}")
         services['db_manager'] = None
     
-    # Services IA
+    # Services de contenu IA (Ollama en priorité)
     try:
         if Config.USE_OLLAMA:
-            from services.ollama_generator import OllamaContentGenerator, HybridAIGenerator
+            from services.ollama_generator import OllamaContentGenerator
             services['ollama_content'] = OllamaContentGenerator
-            services['hybrid_ai'] = HybridAIGenerator
-            print("✅ Services Ollama disponibles")
+            print("✅ Service Ollama disponible")
         else:
             print("⚠️  Ollama désactivé dans la configuration")
+            services['ollama_content'] = None
     except ImportError as e:
-        print(f"⚠️  Services Ollama non disponibles: {e}")
+        print(f"⚠️  Service Ollama non disponible: {e}")
         services['ollama_content'] = None
-        services['hybrid_ai'] = None
     
     # Services OpenAI (fallback)
     try:
@@ -68,6 +71,33 @@ def import_services():
         print(f"⚠️  Services OpenAI non disponibles: {e}")
         services['openai_image'] = None
         services['openai_content'] = None
+    
+    # Service Stable Diffusion (images)
+    try:
+        from services.stable_diffusion_generator import StableDiffusionGenerator
+        services['stable_diffusion'] = StableDiffusionGenerator
+        print("✅ Service Stable Diffusion disponible")
+    except ImportError as e:
+        print(f"⚠️  Service Stable Diffusion non disponible: {e}")
+        services['stable_diffusion'] = None
+    
+    # Service Hugging Face (images alternative)
+    try:
+        from services.stable_diffusion_generator import HuggingFaceGenerator
+        services['huggingface'] = HuggingFaceGenerator
+        print("✅ Service Hugging Face disponible")
+    except ImportError as e:
+        print(f"⚠️  Service Hugging Face non disponible: {e}")
+        services['huggingface'] = None
+    
+    # Service Stable Video Diffusion (NOUVEAU)
+    try:
+        from services.stable_video_diffusion_generator import StableVideoDiffusionGenerator
+        services['svd_generator'] = StableVideoDiffusionGenerator
+        print("✅ Service Stable Video Diffusion disponible")
+    except ImportError as e:
+        print(f"⚠️  Service SVD non disponible: {e}")
+        services['svd_generator'] = None
     
     # Service Instagram
     try:
@@ -252,26 +282,40 @@ def setup_logging(app):
         app.logger.setLevel(logging.INFO)
         app.logger.info('Instagram Automation startup with Ollama')
 
+def get_active_image_service_name(app) -> str:
+    """Retourne le nom du service d'images actif"""
+    if hasattr(app, 'sd_generator') and app.sd_generator and getattr(app.sd_generator, 'is_available', False):
+        return "Stable Diffusion"
+    elif hasattr(app, 'hf_generator') and app.hf_generator:
+        return "Hugging Face"
+    elif hasattr(app, 'image_generator') and app.image_generator and not hasattr(app.image_generator, 'is_available'):
+        return "OpenAI DALL-E"
+    else:
+        return "Non disponible"
+
 
 def init_services(app, services):
-    """Initialise tous les services de l'application (VERSION MISE À JOUR)"""
+    """Initialise tous les services de l'application (VERSION CORRIGÉE)"""
     
-    # Base de données
+    # Base de données - CORRECTION
     if services.get('db_manager'):
         try:
             app.db_manager = services['db_manager'](Config.DATABASE_PATH)
             print("✅ Base de données initialisée")
         except Exception as e:
             print(f"❌ Erreur base de données: {e}")
+            print("💡 Lancez: python database_fix.py pour corriger")
             app.db_manager = None
     else:
         app.db_manager = None
     
-    # Services IA - NOUVELLE LOGIQUE AVEC STABLE DIFFUSION
+    # Services IA - CORRECTION POUR LES IMAGES
     app.content_generator = None
     app.image_generator = None
     app.sd_generator = None
     app.hf_generator = None
+    
+    print("\n📝 Configuration génération de contenu...")
     
     # 1. GÉNÉRATEUR DE CONTENU (Ollama en priorité)
     if Config.USE_OLLAMA and services.get('ollama_content'):
@@ -280,7 +324,7 @@ def init_services(app, services):
                 base_url=Config.OLLAMA_BASE_URL,
                 model=Config.OLLAMA_MODEL
             )
-            print(f"✅ Générateur de contenu Ollama initialisé - Modèle: {Config.OLLAMA_MODEL}")
+            print(f"✅ Générateur de contenu Ollama - Modèle: {Config.OLLAMA_MODEL}")
         except Exception as e:
             print(f"❌ Erreur services Ollama: {e}")
             # Fallback vers OpenAI si disponible
@@ -297,7 +341,9 @@ def init_services(app, services):
         except Exception as e:
             print(f"❌ Erreur service OpenAI: {e}")
     
-    # 2. GÉNÉRATEUR D'IMAGES - NOUVELLE PRIORITÉ: STABLE DIFFUSION
+    print("\n🎨 Configuration génération d'images...")
+    
+    # 2. GÉNÉRATEUR D'IMAGES - CORRECTION MAJEURE
     
     # A. Stable Diffusion (priorité 1 - gratuit et local)
     if Config.USE_STABLE_DIFFUSION:
@@ -308,7 +354,11 @@ def init_services(app, services):
                 app.image_generator = app.sd_generator  # Utiliser SD comme générateur principal
                 print("✅ Stable Diffusion configuré comme générateur d'images principal")
             else:
-                print("⚠️  Stable Diffusion configuré mais non disponible")
+                print(f"⚠️  Stable Diffusion configuré mais non disponible sur {Config.STABLE_DIFFUSION_URL}")
+                print("💡 Démarrez l'interface web avec: python launch.py --api")
+        except ImportError as e:
+            print(f"❌ Module Stable Diffusion manquant: {e}")
+            print("💡 Le fichier services/stable_diffusion_generator.py est requis")
         except Exception as e:
             print(f"❌ Erreur Stable Diffusion: {e}")
     
@@ -319,32 +369,64 @@ def init_services(app, services):
             app.hf_generator = HuggingFaceGenerator(Config.HUGGINGFACE_API_TOKEN)
             app.image_generator = app.hf_generator
             print("✅ Hugging Face configuré comme générateur d'images")
+        except ImportError as e:
+            print(f"❌ Module Hugging Face manquant: {e}")
         except Exception as e:
             print(f"❌ Erreur Hugging Face: {e}")
     
     # C. OpenAI DALL-E (priorité 3 - payant mais fiable)
     if Config.OPENAI_API_KEY and not app.image_generator:
         try:
+            # Vérifier si le module OpenAI est disponible
+            import openai
             from services.ai_generator import AIImageGenerator
             openai_generator = AIImageGenerator(Config.OPENAI_API_KEY)
             app.image_generator = openai_generator
             print("✅ OpenAI DALL-E configuré comme générateur d'images")
+        except ImportError as e:
+            print(f"❌ Module OpenAI manquant: {e}")
+            print("💡 Installez avec: pip install openai")
         except Exception as e:
             print(f"❌ Erreur générateur d'images OpenAI: {e}")
     
-    # Résumé des services d'images
-    if app.image_generator:
-        if hasattr(app.image_generator, 'is_available'):
-            service_name = "Stable Diffusion" if app.sd_generator and app.sd_generator.is_available else "Hugging Face" if app.hf_generator else "OpenAI DALL-E"
-        else:
-            service_name = "OpenAI DALL-E"
-        print(f"🎨 Service d'images actif: {service_name}")
-    else:
+    # D. GÉNÉRATEUR PLACEHOLDER si aucun service disponible
+    if not app.image_generator:
         print("⚠️  Aucun service de génération d'images disponible")
         print("💡 Pour activer la génération d'images:")
-        print("   - Stable Diffusion: Démarrez l'interface web avec --api")
-        print("   - Hugging Face: Ajoutez HUGGINGFACE_API_TOKEN dans .env")
-        print("   - OpenAI: Ajoutez OPENAI_API_KEY dans .env")
+        print("   1. Stable Diffusion: Démarrez l'interface web avec --api")
+        print("   2. Hugging Face: Ajoutez HUGGINGFACE_API_TOKEN=your_token dans .env")
+        print("   3. OpenAI: Installez openai et ajoutez OPENAI_API_KEY dans .env")
+        
+        # Créer un générateur factice pour éviter les erreurs
+        class PlaceholderImageGenerator:
+            def generate_image(self, prompt, **kwargs):
+                from models import ImageGenerationResult
+                return ImageGenerationResult.error_result(
+                    "Aucun service de génération d'images configuré", prompt
+                )
+            
+            def validate_prompt(self, prompt):
+                return True, "OK"
+        
+        app.image_generator = PlaceholderImageGenerator()
+        print("🔧 Générateur placeholder créé (pas de génération réelle)")
+    
+    # Résumé des services d'images
+    if hasattr(app.image_generator, 'is_available'):
+        if app.sd_generator and app.sd_generator.is_available:
+            service_name = "Stable Diffusion"
+        elif app.hf_generator:
+            service_name = "Hugging Face"
+        else:
+            service_name = "Inconnu"
+    elif hasattr(app.image_generator, 'api_key'):
+        service_name = "OpenAI DALL-E"
+    else:
+        service_name = "Placeholder (aucun service actif)"
+    
+    print(f"🎨 Service d'images actif: {service_name}")
+    
+    print("\n📸 Configuration Instagram...")
     
     # Service Instagram
     if services.get('instagram') and Config.INSTAGRAM_ACCESS_TOKEN and Config.INSTAGRAM_ACCOUNT_ID:
@@ -359,10 +441,15 @@ def init_services(app, services):
             app.instagram_publisher = None
     else:
         app.instagram_publisher = None
+        missing_config = []
         if not Config.INSTAGRAM_ACCESS_TOKEN:
-            print("⚠️  INSTAGRAM_ACCESS_TOKEN non configuré")
+            missing_config.append("INSTAGRAM_ACCESS_TOKEN")
         if not Config.INSTAGRAM_ACCOUNT_ID:
-            print("⚠️  INSTAGRAM_ACCOUNT_ID non configuré")
+            missing_config.append("INSTAGRAM_ACCOUNT_ID")
+        if missing_config:
+            print(f"⚠️  Configuration Instagram manquante: {', '.join(missing_config)}")
+    
+    print("\n⏰ Configuration Scheduler...")
     
     # Scheduler
     if services.get('scheduler') and app.db_manager:
@@ -387,6 +474,60 @@ def init_services(app, services):
             app.scheduler = None
     else:
         app.scheduler = None
+        if not app.db_manager:
+            print("⚠️  Scheduler nécessite la base de données")
+    
+    # RÉSUMÉ FINAL
+    print("\n" + "=" * 50)
+    print("📊 RÉSUMÉ DES SERVICES")
+    print("=" * 50)
+    
+    services_status = {
+        'Base de données': '✅' if app.db_manager else '❌',
+        'Contenu (IA)': '✅' if app.content_generator else '❌',
+        'Images (IA)': '✅' if app.image_generator and not isinstance(app.image_generator, type(app.image_generator)) or hasattr(app.image_generator, 'api_key') or (hasattr(app.image_generator, 'is_available') and app.image_generator.is_available) else '❌',
+        'Instagram': '✅' if app.instagram_publisher else '⚠️',
+        'Scheduler': '✅' if app.scheduler else '⚠️'
+    }
+    
+    for service, status in services_status.items():
+        print(f"{status} {service}")
+    
+    # Service IA actif
+    ai_services = []
+    if app.content_generator:
+        if hasattr(app.content_generator, 'model'):
+            ai_services.append(f"Contenu: Ollama ({app.content_generator.model})")
+        else:
+            ai_services.append("Contenu: OpenAI")
+    
+    if app.image_generator:
+        if hasattr(app.image_generator, 'is_available'):
+            if app.sd_generator and app.sd_generator.is_available:
+                ai_services.append("Images: Stable Diffusion")
+            elif app.hf_generator:
+                ai_services.append("Images: Hugging Face")
+        elif hasattr(app.image_generator, 'api_key'):
+            ai_services.append("Images: OpenAI DALL-E")
+        else:
+            ai_services.append("Images: Non disponible")
+    
+    if ai_services:
+        print(f"\n🎯 Services IA actifs: {', '.join(ai_services)}")
+    else:
+        print(f"\n⚠️  Aucun service IA actif")
+    
+    # Score
+    active_count = sum(1 for status in services_status.values() if status == '✅')
+    total_count = len(services_status)
+    print(f"\n📈 Score: {active_count}/{total_count} services actifs")
+    
+    if active_count >= 4:
+        print("✅ Configuration complète")
+    elif active_count >= 2:
+        print("⚠️  Configuration minimale - Certaines fonctionnalités limitées")
+    else:
+        print("❌ Configuration insuffisante")
 
 
 def import_services():
@@ -445,68 +586,487 @@ def import_services():
     
     return services
 
+def generate_debug_template(debug_data):
+    """Génère le template HTML de debug"""
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Debug - Instagram Automation 2.0</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            pre {{ background: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 12px; }}
+            .status-ok {{ color: #28a745; }}
+            .status-error {{ color: #dc3545; }}
+            .status-warning {{ color: #ffc107; }}
+            .service-card {{ transition: transform 0.2s; }}
+            .service-card:hover {{ transform: translateY(-2px); }}
+        </style>
+    </head>
+    <body>
+        <div class="container mt-4">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h1><i class="fas fa-bug me-3"></i>Debug - Instagram Automation 2.0</h1>
+                    <p class="text-muted">Informations complètes du système avec support vidéo</p>
+                </div>
+            </div>
+            
+            <!-- Services Grid -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card service-card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h6><i class="fas fa-brain me-2"></i>Génération de Contenu</h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled">
+                                <li>Ollama: <span class="{'status-ok' if debug_data['ollama']['accessible'] else 'status-error'}">{'✅' if debug_data['ollama']['accessible'] else '❌'}</span></li>
+                                <li>OpenAI: <span class="{'status-ok' if debug_data['configuration']['openai_configured'] else 'status-warning'}">{'✅' if debug_data['configuration']['openai_configured'] else '⚠️'}</span></li>
+                                <li>Modèles: {len(debug_data['ollama']['models'])}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card service-card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h6><i class="fas fa-image me-2"></i>Génération d'Images</h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled">
+                                <li>Stable Diffusion: <span class="{'status-ok' if debug_data['configuration']['use_stable_diffusion'] else 'status-warning'}">{'✅' if debug_data['configuration']['use_stable_diffusion'] else '⚠️'}</span></li>
+                                <li>Hugging Face: <span class="{'status-ok' if debug_data['configuration']['use_huggingface'] else 'status-warning'}">{'✅' if debug_data['configuration']['use_huggingface'] else '⚠️'}</span></li>
+                                <li>OpenAI DALL-E: <span class="{'status-ok' if debug_data['configuration']['openai_configured'] else 'status-warning'}">{'✅' if debug_data['configuration']['openai_configured'] else '⚠️'}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card service-card h-100">
+                        <div class="card-header bg-warning text-dark">
+                            <h6><i class="fas fa-video me-2"></i>Génération de Vidéos</h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled">
+                                <li>SVD activé: <span class="{'status-ok' if debug_data['configuration']['use_stable_video_diffusion'] else 'status-warning'}">{'✅' if debug_data['configuration']['use_stable_video_diffusion'] else '⚠️'}</span></li>
+                                <li>SVD accessible: <span class="{'status-ok' if debug_data['stable_video_diffusion']['accessible'] else 'status-error'}">{'✅' if debug_data['stable_video_diffusion']['accessible'] else '❌'}</span></li>
+                                <li>URL: <code>{debug_data['configuration']['svd_url']}</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configuration détaillée -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-cog me-2"></i>Configuration IA</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>Ollama</h6>
+                            <ul class="list-unstyled small">
+                                <li>Activé: {debug_data['configuration']['use_ollama']}</li>
+                                <li>URL: <code>{debug_data['configuration']['ollama_url']}</code></li>
+                                <li>Modèle: <code>{debug_data['configuration']['ollama_model']}</code></li>
+                                <li>Accessible: {'✅' if debug_data['ollama']['accessible'] else '❌'}</li>
+                            </ul>
+                            
+                            <h6>Stable Diffusion</h6>
+                            <ul class="list-unstyled small">
+                                <li>Activé: {debug_data['configuration']['use_stable_diffusion']}</li>
+                                <li>URL: <code>{debug_data['configuration']['stable_diffusion_url']}</code></li>
+                            </ul>
+                            
+                            <h6>Stable Video Diffusion</h6>
+                            <ul class="list-unstyled small">
+                                <li>Activé: {debug_data['configuration']['use_stable_video_diffusion']}</li>
+                                <li>URL: <code>{debug_data['configuration']['svd_url']}</code></li>
+                                <li>Accessible: {'✅' if debug_data['stable_video_diffusion']['accessible'] else '❌'}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-server me-2"></i>Services Application</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled">
+                                <li>Base de données: <span class="{'status-ok' if debug_data['services']['database'] else 'status-error'}">{'✅' if debug_data['services']['database'] else '❌'}</span></li>
+                                <li>Générateur contenu: <span class="{'status-ok' if debug_data['services']['content_generator'] else 'status-error'}">{'✅' if debug_data['services']['content_generator'] else '❌'}</span></li>
+                                <li>Générateur images: <span class="{'status-ok' if debug_data['services']['image_generator'] else 'status-warning'}">{'✅' if debug_data['services']['image_generator'] else '⚠️'}</span></li>
+                                <li>Générateur vidéos: <span class="{'status-ok' if debug_data['services']['video_generator'] else 'status-warning'}">{'✅' if debug_data['services']['video_generator'] else '⚠️'}</span></li>
+                                <li>Instagram: <span class="{'status-ok' if debug_data['services']['instagram'] else 'status-warning'}">{'✅' if debug_data['services']['instagram'] else '⚠️'}</span></li>
+                                <li>Scheduler: <span class="{'status-ok' if debug_data['services']['scheduler'] else 'status-warning'}">{'✅' if debug_data['services']['scheduler'] else '⚠️'}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Modèles disponibles -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-brain me-2"></i>Modèles Ollama</h5>
+                        </div>
+                        <div class="card-body">
+                            {f'<ul class="list-unstyled">{"".join([f"<li><code>{model}</code></li>" for model in debug_data["ollama"]["models"]])}</ul>' if debug_data['ollama']['models'] else '<p class="text-muted">Aucun modèle ou Ollama non accessible</p>'}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-folder me-2"></i>Structure Dossiers</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled">
+                                <li>generated/: <span class="{'status-ok' if debug_data['folders']['generated'] else 'status-error'}">{'✅' if debug_data['folders']['generated'] else '❌'}</span></li>
+                                <li>generated/videos/: <span class="{'status-ok' if debug_data['folders']['generated_videos'] else 'status-error'}">{'✅' if debug_data['folders']['generated_videos'] else '❌'}</span></li>
+                                <li>uploads/: <span class="{'status-ok' if debug_data['folders']['uploads'] else 'status-error'}">{'✅' if debug_data['folders']['uploads'] else '❌'}</span></li>
+                                <li>static/: <span class="{'status-ok' if debug_data['folders']['static'] else 'status-error'}">{'✅' if debug_data['folders']['static'] else '❌'}</span></li>
+                                <li>templates/: <span class="{'status-ok' if debug_data['folders']['templates'] else 'status-error'}">{'✅' if debug_data['folders']['templates'] else '❌'}</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Variables d'environnement -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-env me-2"></i>Variables d'environnement</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Services IA</h6>
+                            <ul class="list-unstyled small">
+                                <li>USE_OLLAMA: <code>{debug_data['environment']['USE_OLLAMA']}</code></li>
+                                <li>OLLAMA_BASE_URL: <code>{debug_data['environment']['OLLAMA_BASE_URL']}</code></li>
+                                <li>OLLAMA_MODEL: <code>{debug_data['environment']['OLLAMA_MODEL']}</code></li>
+                                <li>USE_STABLE_DIFFUSION: <code>{debug_data['environment']['USE_STABLE_DIFFUSION']}</code></li>
+                                <li>USE_STABLE_VIDEO_DIFFUSION: <code>{debug_data['environment']['USE_STABLE_VIDEO_DIFFUSION']}</code></li>
+                                <li>USE_HUGGINGFACE: <code>{debug_data['environment']['USE_HUGGINGFACE']}</code></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>APIs et Tokens</h6>
+                            <ul class="list-unstyled small">
+                                <li>OPENAI_API_KEY: {debug_data['environment']['OPENAI_API_KEY']}</li>
+                                <li>INSTAGRAM_ACCESS_TOKEN: {debug_data['environment']['INSTAGRAM_ACCESS_TOKEN']}</li>
+                                <li>HUGGINGFACE_API_TOKEN: {debug_data['environment']['HUGGINGFACE_API_TOKEN']}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tests de connexion -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-network-wired me-2"></i>Tests de connexion</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Ollama</h6>
+                            <p>
+                                <a href="{debug_data['ollama']['test_url']}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-external-link-alt me-1"></i>Tester
+                                </a>
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Stable Diffusion</h6>
+                            <p>
+                                <a href="{debug_data['configuration']['stable_diffusion_url']}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-external-link-alt me-1"></i>Interface Web
+                                </a>
+                            </p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Stable Video Diffusion</h6>
+                            <p>
+                                {f'<a href="{debug_data["stable_video_diffusion"]["test_url"]}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-external-link-alt me-1"></i>Tester</a>' if debug_data['stable_video_diffusion']['test_url'] else '<span class="text-muted">Non configuré</span>'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Instructions de dépannage -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-tools me-2"></i>Guide de dépannage</h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="troubleshootingAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#ollama-help">
+                                    Problèmes Ollama
+                                </button>
+                            </h2>
+                            <div id="ollama-help" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Installer: <code>curl -fsSL https://ollama.ai/install.sh | sh</code></li>
+                                        <li>Démarrer: <code>ollama serve</code></li>
+                                        <li>Télécharger modèle: <code>ollama pull mistral:latest</code></li>
+                                        <li>Tester: <code>curl {debug_data['ollama']['test_url']}</code></li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#svd-help">
+                                    Problèmes Stable Video Diffusion
+                                </button>
+                            </h2>
+                            <div id="svd-help" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Installer ComfyUI: <code>git clone https://github.com/comfyanonymous/ComfyUI</code></li>
+                                        <li>Installer dépendances: <code>cd ComfyUI && pip install -r requirements.txt</code></li>
+                                        <li>Télécharger SVD: <code>huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt</code></li>
+                                        <li>Démarrer avec API: <code>python main.py --port 7862</code></li>
+                                        <li>Tester: <code>curl {debug_data['configuration']['svd_url']}/system_stats</code></li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#gpu-help">
+                                    Problèmes GPU
+                                </button>
+                            </h2>
+                            <div id="gpu-help" class="accordion-collapse collapse">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Vérifier CUDA: <code>nvidia-smi</code></li>
+                                        <li>Vérifier PyTorch GPU: <code>python -c "import torch; print(torch.cuda.is_available())"</code></li>
+                                        <li>VRAM recommandé: 8GB+ pour images, 12GB+ pour vidéos</li>
+                                        <li>Si VRAM insuffisant: <code>--lowvram</code> pour ComfyUI</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Raw data -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-code me-2"></i>Données brutes (JSON)</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="small">{json.dumps(debug_data, indent=2, default=str)}</pre>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="mt-4 text-center">
+                <a href="/" class="btn btn-primary me-2">
+                    <i class="fas fa-home me-1"></i>Accueil
+                </a>
+                <a href="/health" class="btn btn-success me-2">
+                    <i class="fas fa-heartbeat me-1"></i>Health Check
+                </a>
+                <a href="/settings" class="btn btn-secondary me-2">
+                    <i class="fas fa-cog me-1"></i>Paramètres
+                </a>
+                <button onclick="location.reload()" class="btn btn-outline-primary">
+                    <i class="fas fa-sync me-1"></i>Actualiser
+                </button>
+            </div>
+        </div>
+        
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+    </html>
+    '''
+
 
 def setup_system_routes(app, services, routes_ok):
-    """Configure les routes système"""
+    """Configure les routes système avec support vidéo (VERSION COMPLÈTE)"""
     
     @app.route('/health')
     def health_check():
-        """Route de santé de l'application"""
+        """Route de santé complète avec tous les services"""
         
-        # Test de connexion Ollama
+        # Test Ollama
         ollama_status = False
         ollama_models = []
         if Config.USE_OLLAMA:
             ollama_status, ollama_models = test_ollama_connection()
         
-        # Statut des services
+        # Test SVD
+        svd_status = False
+        svd_queue_info = {}
+        if hasattr(app, 'svd_generator') and app.svd_generator:
+            svd_status = app.svd_generator.is_available
+            if svd_status:
+                try:
+                    svd_queue_info = app.svd_generator.get_queue_status()
+                except:
+                    pass
+        
+        # Statut détaillé des services
         services_status = {
-            'database': hasattr(app, 'db_manager') and app.db_manager is not None,
-            'content_generator': hasattr(app, 'content_generator') and app.content_generator is not None,
-            'image_generator': hasattr(app, 'image_generator') and app.image_generator is not None,
-            'instagram_publisher': hasattr(app, 'instagram_publisher') and app.instagram_publisher is not None,
-            'scheduler': hasattr(app, 'scheduler') and app.scheduler is not None,
-            'ollama_accessible': ollama_status,
+            'database': {
+                'available': hasattr(app, 'db_manager') and app.db_manager is not None,
+                'type': 'SQLite',
+                'path': Config.DATABASE_PATH if hasattr(app, 'db_manager') and app.db_manager else None
+            },
+            'content_generator': {
+                'available': hasattr(app, 'content_generator') and app.content_generator is not None,
+                'service': "Ollama" if hasattr(app, 'content_generator') and hasattr(app.content_generator, 'base_url') else "OpenAI" if hasattr(app, 'content_generator') else None,
+                'model': Config.OLLAMA_MODEL if Config.USE_OLLAMA else None
+            },
+            'image_generator': {
+                'available': hasattr(app, 'image_generator') and app.image_generator is not None,
+                'service': get_active_image_service_name(app),
+                'stable_diffusion_available': hasattr(app, 'sd_generator') and app.sd_generator and getattr(app.sd_generator, 'is_available', False),
+                'huggingface_available': hasattr(app, 'hf_generator') and app.hf_generator is not None,
+                'openai_available': bool(Config.OPENAI_API_KEY)
+            },
+            'video_generator': {
+                'available': svd_status,
+                'service': 'Stable Video Diffusion' if svd_status else None,
+                'api_url': Config.SVD_API_URL if Config.USE_STABLE_VIDEO_DIFFUSION else None,
+                'queue_running': svd_queue_info.get('queue_running', []),
+                'queue_pending': svd_queue_info.get('queue_pending', []),
+                'max_duration': Config.SVD_MAX_DURATION if Config.USE_STABLE_VIDEO_DIFFUSION else None
+            },
+            'instagram_publisher': {
+                'available': hasattr(app, 'instagram_publisher') and app.instagram_publisher is not None,
+                'account_id': Config.INSTAGRAM_ACCOUNT_ID if Config.INSTAGRAM_ACCOUNT_ID else None,
+                'token_configured': bool(Config.INSTAGRAM_ACCESS_TOKEN)
+            },
+            'scheduler': {
+                'available': hasattr(app, 'scheduler') and app.scheduler is not None,
+                'running': hasattr(app, 'scheduler') and app.scheduler and getattr(app.scheduler, 'is_running', False),
+                'check_interval': Config.SCHEDULER_CHECK_INTERVAL
+            },
             'routes_loaded': routes_ok
         }
         
-        # Configuration IA
+        # Configuration IA complète
         ai_config = {
-            'use_ollama': Config.USE_OLLAMA,
-            'ollama_url': Config.OLLAMA_BASE_URL,
-            'ollama_model': Config.OLLAMA_MODEL,
-            'ollama_accessible': ollama_status,
-            'openai_available': bool(Config.OPENAI_API_KEY),
-            'content_service': 'Ollama' if Config.USE_OLLAMA and ollama_status else 'OpenAI' if Config.OPENAI_API_KEY else 'Non disponible',
-            'image_service': 'OpenAI DALL-E' if Config.OPENAI_API_KEY else 'Non disponible'
+            'content': {
+                'use_ollama': Config.USE_OLLAMA,
+                'ollama_url': Config.OLLAMA_BASE_URL,
+                'ollama_model': Config.OLLAMA_MODEL,
+                'ollama_accessible': ollama_status,
+                'openai_available': bool(Config.OPENAI_API_KEY),
+                'active_service': services_status['content_generator']['service']
+            },
+            'images': {
+                'use_stable_diffusion': Config.USE_STABLE_DIFFUSION,
+                'stable_diffusion_url': Config.STABLE_DIFFUSION_URL,
+                'use_huggingface': Config.USE_HUGGINGFACE,
+                'openai_available': bool(Config.OPENAI_API_KEY),
+                'active_service': services_status['image_generator']['service']
+            },
+            'videos': {
+                'use_stable_video_diffusion': Config.USE_STABLE_VIDEO_DIFFUSION,
+                'svd_url': Config.SVD_API_URL,
+                'svd_accessible': svd_status,
+                'max_duration': Config.SVD_MAX_DURATION,
+                'default_fps': Config.SVD_DEFAULT_FPS,
+                'active_service': services_status['video_generator']['service']
+            }
         }
+        
+        # Statistiques si disponibles
+        stats = {}
+        if hasattr(app, 'db_manager') and app.db_manager:
+            try:
+                stats = app.db_manager.get_posts_stats()
+            except:
+                stats = {}
+        
+        # Score de santé global
+        total_services = len(services_status)
+        available_services = sum(1 for service in services_status.values() if service.get('available', False))
+        health_score = (available_services / total_services) * 100
+        
+        # Statut global
+        if health_score >= 80:
+            global_status = "excellent"
+        elif health_score >= 60:
+            global_status = "good"
+        elif health_score >= 40:
+            global_status = "fair"
+        else:
+            global_status = "poor"
         
         return jsonify({
             'status': 'ok',
-            'message': 'Instagram Automation avec Ollama',
+            'global_status': global_status,
+            'health_score': round(health_score, 1),
+            'message': 'Instagram Automation avec IA complète (Images + Vidéos)',
             'services': services_status,
             'ai_configuration': ai_config,
             'ollama_models': ollama_models,
-            'version': '1.0.0-ollama'
+            'statistics': stats,
+            'version': '2.0.0-video',
+            'timestamp': datetime.now().isoformat(),
+            'uptime': 'N/A'  # Pourrait être calculé si besoin
         })
     
     @app.route('/debug')
     def debug_info():
-        """Route de debug avec informations détaillées"""
+        """Route de debug avec informations complètes"""
         
         ollama_status, ollama_models = test_ollama_connection() if Config.USE_OLLAMA else (False, [])
+        
+        # Test SVD
+        svd_status = False
+        svd_info = {}
+        if hasattr(app, 'svd_generator') and app.svd_generator:
+            svd_status = app.svd_generator.is_available
+            if svd_status:
+                try:
+                    svd_info = app.svd_generator.get_status()
+                except:
+                    pass
         
         debug_data = {
             'system': {
                 'python_version': sys.version,
                 'current_dir': current_dir,
                 'files': [f for f in os.listdir(current_dir) if not f.startswith('.')],
-                'python_path': sys.path[:3]
+                'python_path': sys.path[:3],
+                'platform': platform.system(),
+                'architecture': platform.machine()
             },
             'configuration': {
                 'use_ollama': Config.USE_OLLAMA,
                 'ollama_url': Config.OLLAMA_BASE_URL,
                 'ollama_model': Config.OLLAMA_MODEL,
+                'use_stable_diffusion': Config.USE_STABLE_DIFFUSION,
+                'stable_diffusion_url': Config.STABLE_DIFFUSION_URL,
+                'use_stable_video_diffusion': Config.USE_STABLE_VIDEO_DIFFUSION,
+                'svd_url': Config.SVD_API_URL,
+                'use_huggingface': Config.USE_HUGGINGFACE,
                 'openai_configured': bool(Config.OPENAI_API_KEY),
                 'instagram_configured': bool(Config.INSTAGRAM_ACCESS_TOKEN and Config.INSTAGRAM_ACCOUNT_ID)
             },
@@ -515,10 +1075,16 @@ def setup_system_routes(app, services, routes_ok):
                 'models': ollama_models,
                 'test_url': f"{Config.OLLAMA_BASE_URL}/api/tags"
             },
+            'stable_video_diffusion': {
+                'accessible': svd_status,
+                'info': svd_info,
+                'test_url': f"{Config.SVD_API_URL}/system_stats" if Config.USE_STABLE_VIDEO_DIFFUSION else None
+            },
             'services': {
                 'database': hasattr(app, 'db_manager') and app.db_manager is not None,
                 'content_generator': hasattr(app, 'content_generator') and app.content_generator is not None,
                 'image_generator': hasattr(app, 'image_generator') and app.image_generator is not None,
+                'video_generator': hasattr(app, 'svd_generator') and app.svd_generator is not None and getattr(app.svd_generator, 'is_available', False),
                 'instagram': hasattr(app, 'instagram_publisher') and app.instagram_publisher is not None,
                 'scheduler': hasattr(app, 'scheduler') and app.scheduler is not None
             },
@@ -526,97 +1092,26 @@ def setup_system_routes(app, services, routes_ok):
                 'USE_OLLAMA': os.getenv('USE_OLLAMA', 'True'),
                 'OLLAMA_BASE_URL': os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
                 'OLLAMA_MODEL': os.getenv('OLLAMA_MODEL', 'mistral:latest'),
+                'USE_STABLE_DIFFUSION': os.getenv('USE_STABLE_DIFFUSION', 'True'),
+                'STABLE_DIFFUSION_URL': os.getenv('STABLE_DIFFUSION_URL', 'http://localhost:7861'),
+                'USE_STABLE_VIDEO_DIFFUSION': os.getenv('USE_STABLE_VIDEO_DIFFUSION', 'False'),
+                'SVD_API_URL': os.getenv('SVD_API_URL', 'http://localhost:7862'),
+                'USE_HUGGINGFACE': os.getenv('USE_HUGGINGFACE', 'False'),
                 'OPENAI_API_KEY': '✅ Configuré' if os.getenv('OPENAI_API_KEY') else '❌ Non configuré',
-                'INSTAGRAM_ACCESS_TOKEN': '✅ Configuré' if os.getenv('INSTAGRAM_ACCESS_TOKEN') else '❌ Non configuré'
+                'INSTAGRAM_ACCESS_TOKEN': '✅ Configuré' if os.getenv('INSTAGRAM_ACCESS_TOKEN') else '❌ Non configuré',
+                'HUGGINGFACE_API_TOKEN': '✅ Configuré' if os.getenv('HUGGINGFACE_API_TOKEN') else '❌ Non configuré'
+            },
+            'folders': {
+                'generated': os.path.exists('generated'),
+                'generated_videos': os.path.exists('generated/videos'),
+                'uploads': os.path.exists('uploads'),
+                'static': os.path.exists('static'),
+                'templates': os.path.exists('templates')
             }
         }
         
-        # Template de debug
-        debug_template = f'''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Debug - Instagram Automation</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-            <style>
-                pre {{ background: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 12px; }}
-                .status-ok {{ color: #28a745; }}
-                .status-error {{ color: #dc3545; }}
-                .status-warning {{ color: #ffc107; }}
-            </style>
-        </head>
-        <body>
-            <div class="container mt-4">
-                <h1>🔍 Debug - Instagram Automation</h1>
-                
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="card mb-4">
-                            <div class="card-header"><h5>🤖 Configuration IA</h5></div>
-                            <div class="card-body">
-                                <ul class="list-unstyled">
-                                    <li>Ollama activé: <span class="{'status-ok' if debug_data['configuration']['use_ollama'] else 'status-error'}">{'✅ Oui' if debug_data['configuration']['use_ollama'] else '❌ Non'}</span></li>
-                                    <li>Ollama accessible: <span class="{'status-ok' if debug_data['ollama']['accessible'] else 'status-error'}">{'✅ Oui' if debug_data['ollama']['accessible'] else '❌ Non'}</span></li>
-                                    <li>Modèle: <code>{debug_data['configuration']['ollama_model']}</code></li>
-                                    <li>URL: <code>{debug_data['configuration']['ollama_url']}</code></li>
-                                    <li>OpenAI: <span class="{'status-ok' if debug_data['configuration']['openai_configured'] else 'status-warning'}">{'✅ Configuré' if debug_data['configuration']['openai_configured'] else '⚠️ Non configuré'}</span></li>
-                                </ul>
-                            </div>
-                        </div>
-                        
-                        <div class="card mb-4">
-                            <div class="card-header"><h5>📊 Services</h5></div>
-                            <div class="card-body">
-                                <ul class="list-unstyled">
-                                    <li>Base de données: <span class="{'status-ok' if debug_data['services']['database'] else 'status-error'}">{'✅' if debug_data['services']['database'] else '❌'} {'OK' if debug_data['services']['database'] else 'Erreur'}</span></li>
-                                    <li>Générateur de contenu: <span class="{'status-ok' if debug_data['services']['content_generator'] else 'status-error'}">{'✅' if debug_data['services']['content_generator'] else '❌'} {'OK' if debug_data['services']['content_generator'] else 'Erreur'}</span></li>
-                                    <li>Générateur d'images: <span class="{'status-ok' if debug_data['services']['image_generator'] else 'status-warning'}">{'✅' if debug_data['services']['image_generator'] else '⚠️'} {'OK' if debug_data['services']['image_generator'] else 'Non disponible'}</span></li>
-                                    <li>Instagram: <span class="{'status-ok' if debug_data['services']['instagram'] else 'status-warning'}">{'✅' if debug_data['services']['instagram'] else '⚠️'} {'OK' if debug_data['services']['instagram'] else 'Non configuré'}</span></li>
-                                    <li>Scheduler: <span class="{'status-ok' if debug_data['services']['scheduler'] else 'status-warning'}">{'✅' if debug_data['services']['scheduler'] else '⚠️'} {'OK' if debug_data['services']['scheduler'] else 'Non disponible'}</span></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <div class="card mb-4">
-                            <div class="card-header"><h5>🧠 Modèles Ollama</h5></div>
-                            <div class="card-body">
-                                {f'<ul class="list-unstyled">{"".join([f"<li><code>{model}</code></li>" for model in debug_data["ollama"]["models"]])}</ul>' if debug_data['ollama']['models'] else '<p class="text-muted">Aucun modèle trouvé ou Ollama non accessible</p>'}
-                            </div>
-                        </div>
-                        
-                        <div class="card mb-4">
-                            <div class="card-header"><h5>🔧 Variables d'environnement</h5></div>
-                            <div class="card-body">
-                                <ul class="list-unstyled small">
-                                    <li>USE_OLLAMA: <code>{debug_data['environment']['USE_OLLAMA']}</code></li>
-                                    <li>OLLAMA_BASE_URL: <code>{debug_data['environment']['OLLAMA_BASE_URL']}</code></li>
-                                    <li>OLLAMA_MODEL: <code>{debug_data['environment']['OLLAMA_MODEL']}</code></li>
-                                    <li>OPENAI_API_KEY: {debug_data['environment']['OPENAI_API_KEY']}</li>
-                                    <li>INSTAGRAM_ACCESS_TOKEN: {debug_data['environment']['INSTAGRAM_ACCESS_TOKEN']}</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <div class="card-header"><h5>💾 Données complètes</h5></div>
-                    <div class="card-body">
-                        <pre>{str(debug_data)}</pre>
-                    </div>
-                </div>
-                
-                <div class="mt-4 text-center">
-                    <a href="/" class="btn btn-primary">← Retour à l'accueil</a>
-                    <a href="/health" class="btn btn-success">Health Check</a>
-                </div>
-            </div>
-        </body>
-        </html>
-        '''
-        
+        # Template de debug amélioré
+        debug_template = generate_debug_template(debug_data)
         return debug_template
 
 
@@ -639,13 +1134,31 @@ def setup_error_handlers(app):
 
 
 def test_ollama_connection():
-    """Test la connexion à Ollama et retourne les modèles disponibles"""
+    """Test la connexion à Ollama et retourne les modèles (VERSION AMÉLIORÉE)"""
     try:
         import requests
-        response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=5)
+        response = requests.get(f"{Config.OLLAMA_BASE_URL}/api/tags", timeout=10)
         if response.status_code == 200:
             data = response.json()
             models = [model['name'] for model in data.get('models', [])]
+            
+            # Test rapide de génération si le modèle configuré existe
+            if Config.OLLAMA_MODEL in models:
+                try:
+                    test_response = requests.post(
+                        f"{Config.OLLAMA_BASE_URL}/api/generate",
+                        json={
+                            "model": Config.OLLAMA_MODEL,
+                            "prompt": "Hello",
+                            "stream": False
+                        },
+                        timeout=15
+                    )
+                    if test_response.status_code == 200:
+                        print(f"✅ Test génération Ollama réussi avec {Config.OLLAMA_MODEL}")
+                except Exception as e:
+                    print(f"⚠️  Test génération Ollama échoué: {e}")
+            
             return True, models
         return False, []
     except Exception as e:
@@ -654,10 +1167,10 @@ def test_ollama_connection():
 
 
 def create_required_directories():
-    """Crée les dossiers nécessaires"""
+    """Crée tous les dossiers nécessaires (VERSION COMPLÈTE)"""
     directories = [
-        'templates', 'static', 'uploads', 'generated', 'logs',
-        'services', 'routes', 'utils'
+        'templates', 'static', 'uploads', 'generated', 'generated/videos', 'logs',
+        'services', 'routes', 'utils', 'static/temp', 'static/generated'
     ]
     
     for directory in directories:
@@ -672,41 +1185,87 @@ def create_required_directories():
             with open(init_file, 'w') as f:
                 f.write(f'# {init_file}\n')
             print(f"✅ Fichier {init_file} créé")
+    
+    # Créer un .gitkeep pour les dossiers vides
+    gitkeep_dirs = ['generated/videos', 'uploads', 'static/temp']
+    for dir_path in gitkeep_dirs:
+        gitkeep_file = os.path.join(dir_path, '.gitkeep')
+        if not os.path.exists(gitkeep_file):
+            with open(gitkeep_file, 'w') as f:
+                f.write('# Garde ce dossier dans Git\n')
 
 
 def create_env_file():
-    """Crée un fichier .env d'exemple s'il n'existe pas"""
+    """Crée un fichier .env complet avec toutes les variables (VERSION MISE À JOUR)"""
     if not os.path.exists('.env') and not os.path.exists('.env.example'):
-        env_content = '''# Configuration Instagram Automation avec Ollama
+        env_content = '''# Configuration Instagram Automation 2.0 avec IA complète
 
-# === IA Configuration ===
+# === SERVICES IA - CONTENU ===
 USE_OLLAMA=True
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=mistral:latest
 OLLAMA_TEMPERATURE=0.7
 OLLAMA_MAX_TOKENS=500
+OLLAMA_TIMEOUT=30
 
-# OpenAI (optionnel - pour les images uniquement)
+# === SERVICES IA - IMAGES ===
+USE_STABLE_DIFFUSION=True
+STABLE_DIFFUSION_URL=http://localhost:7861
+SD_DEFAULT_STEPS=20
+SD_DEFAULT_CFG_SCALE=7.0
+SD_DEFAULT_SIZE=1024x1024
+
+USE_HUGGINGFACE=False
+HUGGINGFACE_API_TOKEN=your_hf_token_here
+
+# === SERVICES IA - VIDÉOS (NOUVEAU) ===
+USE_STABLE_VIDEO_DIFFUSION=True
+SVD_API_URL=http://localhost:7862
+SVD_MAX_DURATION=10
+SVD_DEFAULT_FPS=8
+SVD_DEFAULT_MOTION=0.7
+
+# === OPENAI (OPTIONNEL) ===
 # OPENAI_API_KEY=your_openai_api_key_here
 
-# === Instagram Configuration ===
+# === INSTAGRAM CONFIGURATION ===
 INSTAGRAM_ACCESS_TOKEN=your_instagram_access_token
 INSTAGRAM_ACCOUNT_ID=your_instagram_business_account_id
 
-# === Flask Configuration ===
+# === FLASK CONFIGURATION ===
 SECRET_KEY=your_super_secret_key_change_this_in_production
 FLASK_ENV=development
 FLASK_DEBUG=True
 
-# === Database & Storage ===
+# === DATABASE & STORAGE ===
 DATABASE_PATH=posts.db
 UPLOAD_FOLDER=uploads
 GENERATED_FOLDER=generated
+VIDEO_FOLDER=generated/videos
+
+# === SCHEDULER ===
+SCHEDULER_CHECK_INTERVAL=60
+
+# === NOTES D'INSTALLATION ===
+# 1. Ollama:
+#    curl -fsSL https://ollama.ai/install.sh | sh
+#    ollama serve
+#    ollama pull mistral:latest
+#
+# 2. Stable Diffusion:
+#    git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui
+#    ./webui.sh --api
+#
+# 3. Stable Video Diffusion:
+#    git clone https://github.com/comfyanonymous/ComfyUI
+#    cd ComfyUI && python main.py --port 7862
+#
+# 4. GPU requis pour génération d'images/vidéos (8GB+ VRAM recommandé)
 '''
         
         with open('.env.example', 'w') as f:
             f.write(env_content)
-        print("✅ Fichier .env.example créé")
+        print("✅ Fichier .env.example créé avec configuration complète")
 
 
 def test_ollama_cli():

@@ -11,9 +11,10 @@ class Config:
     # Configuration de la base de données
     DATABASE_PATH = os.getenv('DATABASE_PATH', 'posts.db')
     
-    # Configuration des dossiers
+    # Configuration des dossiers (ORDRE CORRIGÉ)
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     GENERATED_FOLDER = os.getenv('GENERATED_FOLDER', 'generated')
+    VIDEO_FOLDER = os.path.join(GENERATED_FOLDER, 'videos')  # Maintenant GENERATED_FOLDER est défini
     STATIC_FOLDER = 'static'
     TEMPLATE_FOLDER = 'templates'
     
@@ -21,16 +22,26 @@ class Config:
     OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
     OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'mistral:latest')
     USE_OLLAMA = os.getenv('USE_OLLAMA', 'True').lower() == 'true'
+    OLLAMA_TEMPERATURE = float(os.getenv('OLLAMA_TEMPERATURE', '0.7'))
+    OLLAMA_MAX_TOKENS = int(os.getenv('OLLAMA_MAX_TOKENS', '500'))
+    OLLAMA_TIMEOUT = int(os.getenv('OLLAMA_TIMEOUT', '30'))
     
     # Configuration OpenAI (optionnel maintenant)
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     
-    # Configuration Stable Diffusion (NOUVEAU)
+    # Configuration Stable Diffusion
     USE_STABLE_DIFFUSION = os.getenv('USE_STABLE_DIFFUSION', 'True').lower() == 'true'
     STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://localhost:7861')
     SD_DEFAULT_STEPS = int(os.getenv('SD_DEFAULT_STEPS', '20'))
     SD_DEFAULT_CFG_SCALE = float(os.getenv('SD_DEFAULT_CFG_SCALE', '7.0'))
     SD_DEFAULT_SIZE = os.getenv('SD_DEFAULT_SIZE', '1024x1024')
+    
+    # Configuration Stable Video Diffusion (NOUVEAU)
+    USE_STABLE_VIDEO_DIFFUSION = os.getenv('USE_STABLE_VIDEO_DIFFUSION', 'False').lower() == 'true'
+    SVD_API_URL = os.getenv('SVD_API_URL', 'http://localhost:7862')
+    SVD_MAX_DURATION = int(os.getenv('SVD_MAX_DURATION', '10'))
+    SVD_DEFAULT_FPS = int(os.getenv('SVD_DEFAULT_FPS', '8'))
+    SVD_DEFAULT_MOTION = float(os.getenv('SVD_DEFAULT_MOTION', '0.7'))
     
     # Configuration Hugging Face (alternative gratuite)
     HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
@@ -39,10 +50,13 @@ class Config:
     # Configuration Instagram
     INSTAGRAM_ACCESS_TOKEN = os.getenv('INSTAGRAM_ACCESS_TOKEN')
     INSTAGRAM_ACCOUNT_ID = os.getenv('INSTAGRAM_ACCOUNT_ID')
+    INSTAGRAM_API_VERSION = "v18.0"
+    INSTAGRAM_BASE_URL = f"https://graph.facebook.com/{INSTAGRAM_API_VERSION}"
     
-    # Configuration des images
+    # Configuration des fichiers
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'avi', 'mov'}
     
     # Configuration du scheduler
     SCHEDULER_CHECK_INTERVAL = 60  # secondes
@@ -52,21 +66,13 @@ class Config:
     DALLE_QUALITY = "standard"
     DALLE_MODEL = "dall-e-3"
     
-    # Configuration Ollama pour le contenu
-    OLLAMA_TEMPERATURE = float(os.getenv('OLLAMA_TEMPERATURE', '0.7'))
-    OLLAMA_MAX_TOKENS = int(os.getenv('OLLAMA_MAX_TOKENS', '500'))
-    OLLAMA_TIMEOUT = int(os.getenv('OLLAMA_TIMEOUT', '30'))
-    
-    # Configuration Instagram API
-    INSTAGRAM_API_VERSION = "v18.0"
-    INSTAGRAM_BASE_URL = f"https://graph.facebook.com/{INSTAGRAM_API_VERSION}"
-    
     @staticmethod
     def init_app(app):
         """Initialise la configuration de l'application"""
         # Créer les dossiers nécessaires
         os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
         os.makedirs(Config.GENERATED_FOLDER, exist_ok=True)
+        os.makedirs(Config.VIDEO_FOLDER, exist_ok=True)
         os.makedirs(Config.STATIC_FOLDER, exist_ok=True)
         os.makedirs(Config.TEMPLATE_FOLDER, exist_ok=True)
         
@@ -76,7 +82,7 @@ class Config:
         app.config['UPLOAD_FOLDER'] = Config.UPLOAD_FOLDER
         
         print(f"🔧 Configuration initialisée:")
-        print(f"   📁 Dossiers créés: uploads, generated, static, templates")
+        print(f"   📁 Dossiers créés: uploads, generated, generated/videos, static, templates")
         print(f"   🤖 Ollama: {'✅ Activé' if Config.USE_OLLAMA else '❌ Désactivé'}")
         if Config.USE_OLLAMA:
             print(f"   🧠 Modèle: {Config.OLLAMA_MODEL}")
@@ -86,6 +92,11 @@ class Config:
         if Config.USE_STABLE_DIFFUSION:
             print(f"   🖼️  URL: {Config.STABLE_DIFFUSION_URL}")
             print(f"   ⚙️  Étapes par défaut: {Config.SD_DEFAULT_STEPS}")
+        
+        print(f"   🎬 Stable Video Diffusion: {'✅ Activé' if Config.USE_STABLE_VIDEO_DIFFUSION else '❌ Désactivé'}")
+        if Config.USE_STABLE_VIDEO_DIFFUSION:
+            print(f"   🎥 URL SVD: {Config.SVD_API_URL}")
+            print(f"   ⏱️  Durée max: {Config.SVD_MAX_DURATION}s")
         
         print(f"   🤗 Hugging Face: {'✅ Activé' if Config.USE_HUGGINGFACE else '❌ Désactivé'}")
     
@@ -124,6 +135,18 @@ class Config:
             except Exception as e:
                 warnings.append(f'Stable Diffusion non accessible: {str(e)}')
         
+        # Validation SVD si activé
+        if Config.USE_STABLE_VIDEO_DIFFUSION:
+            try:
+                import requests
+                response = requests.get(f"{Config.SVD_API_URL}/system_stats", timeout=5)
+                if response.status_code == 200:
+                    print(f"✅ Stable Video Diffusion connecté sur {Config.SVD_API_URL}")
+                else:
+                    warnings.append(f'SVD non accessible sur {Config.SVD_API_URL}')
+            except Exception as e:
+                warnings.append(f'SVD non accessible: {str(e)}')
+        
         # OpenAI optionnel maintenant
         if not Config.OPENAI_API_KEY:
             warnings.append('OPENAI_API_KEY non configuré - DALL-E indisponible')
@@ -155,7 +178,7 @@ class Config:
         elif not missing_configs:
             print("✅ Configuration de base valide (avec avertissements)")
         
-        # Instructions pour Stable Diffusion
+        # Instructions pour les services
         if Config.USE_STABLE_DIFFUSION:
             print(f"\n💡 Pour utiliser Stable Diffusion :")
             print(f"   1. Téléchargez AUTOMATIC1111 WebUI:")
@@ -164,6 +187,16 @@ class Config:
             print(f"      ./webui.sh --api")
             print(f"      ou: python launch.py --api")
             print(f"   3. L'interface sera accessible sur {Config.STABLE_DIFFUSION_URL}")
+        
+        if Config.USE_STABLE_VIDEO_DIFFUSION:
+            print(f"\n💡 Pour utiliser Stable Video Diffusion :")
+            print(f"   1. Installer ComfyUI:")
+            print(f"      git clone https://github.com/comfyanonymous/ComfyUI")
+            print(f"   2. Télécharger SVD:")
+            print(f"      huggingface-cli download stabilityai/stable-video-diffusion-img2vid-xt")
+            print(f"   3. Démarrer avec API:")
+            print(f"      python main.py --port 7862")
+            print(f"   4. Installer les nodes SVD dans ComfyUI")
         
         return len(missing_configs) == 0
     
@@ -174,6 +207,12 @@ class Config:
                filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
     
     @staticmethod
+    def allowed_video_file(filename):
+        """Vérifie si l'extension vidéo est autorisée"""
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_VIDEO_EXTENSIONS
+    
+    @staticmethod
     def get_ai_config():
         """Retourne la configuration IA active"""
         return {
@@ -182,10 +221,13 @@ class Config:
             'ollama_model': Config.OLLAMA_MODEL,
             'use_stable_diffusion': Config.USE_STABLE_DIFFUSION,
             'stable_diffusion_url': Config.STABLE_DIFFUSION_URL,
+            'use_stable_video_diffusion': Config.USE_STABLE_VIDEO_DIFFUSION,
+            'svd_url': Config.SVD_API_URL,
             'use_huggingface': Config.USE_HUGGINGFACE,
             'openai_available': bool(Config.OPENAI_API_KEY),
             'content_service': 'Ollama' if Config.USE_OLLAMA else 'OpenAI',
-            'image_service': 'Stable Diffusion' if Config.USE_STABLE_DIFFUSION else 'Hugging Face' if Config.USE_HUGGINGFACE else 'OpenAI DALL-E' if Config.OPENAI_API_KEY else 'Non disponible'
+            'image_service': 'Stable Diffusion' if Config.USE_STABLE_DIFFUSION else 'Hugging Face' if Config.USE_HUGGINGFACE else 'OpenAI DALL-E' if Config.OPENAI_API_KEY else 'Non disponible',
+            'video_service': 'Stable Video Diffusion' if Config.USE_STABLE_VIDEO_DIFFUSION else 'Non disponible'
         }
     
     @staticmethod
@@ -201,7 +243,8 @@ class Config:
 class DevelopmentConfig(Config):
     """Configuration pour le développement"""
     DEBUG = True
-    
+
+
 class ProductionConfig(Config):
     """Configuration pour la production"""
     DEBUG = False
@@ -210,6 +253,7 @@ class ProductionConfig(Config):
     # En production, utiliser des URLs externes si nécessaire
     OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')  # Docker
     STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://stable-diffusion:7861')  # Docker
+    SVD_API_URL = os.getenv('SVD_API_URL', 'http://comfyui:7862')  # Docker
     
     @staticmethod
     def init_app(app):
@@ -232,6 +276,7 @@ class ProductionConfig(Config):
             app.logger.addHandler(file_handler)
             app.logger.setLevel(logging.INFO)
             app.logger.info('Instagram Automation startup')
+
 
 # Configuration par défaut
 config = {
