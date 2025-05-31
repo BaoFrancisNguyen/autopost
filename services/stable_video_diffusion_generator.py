@@ -15,7 +15,7 @@ from models import VideoGenerationResult
 class StableVideoDiffusionGenerator:
     """Générateur de vidéos avec Stable Video Diffusion (local)"""
     
-    def __init__(self, api_url: str = "http://localhost:7861"):
+    def __init__(self, api_url: str = "http://localhost:7862"):
         """
         Initialise le générateur SVD
         
@@ -39,7 +39,7 @@ class StableVideoDiffusionGenerator:
             print("💡 Pour démarrer SVD avec ComfyUI :")
             print("   1. Installez ComfyUI : git clone https://github.com/comfyanonymous/ComfyUI")
             print("   2. Téléchargez SVD : huggingface-cli download stabilityai/stable-video-diffusion-img2vid")
-            print("   3. Démarrez : python main.py --port 7861")
+            print("   3. Démarrez : python main.py --port 7862")
     
     def _test_connection(self) -> bool:
         """Teste la connexion à ComfyUI/SVD"""
