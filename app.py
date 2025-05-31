@@ -529,6 +529,136 @@ def init_services(app, services):
     else:
         print("❌ Configuration insuffisante")
 
+    # 3. GÉNÉRATEUR DE VIDÉOS - STABLE VIDEO DIFFUSION
+    app.svd_generator = None
+    
+    if Config.USE_STABLE_VIDEO_DIFFUSION:
+        try:
+            from services.stable_video_diffusion_generator import StableVideoDiffusionGenerator
+            app.svd_generator = StableVideoDiffusionGenerator(Config.SVD_API_URL)
+            
+            if app.svd_generator.is_available:
+                print("✅ Stable Video Diffusion configuré et accessible")
+                
+                # Test rapide de la queue
+                try:
+                    queue_status = app.svd_generator.get_queue_status()
+                    running_jobs = len(queue_status.get('queue_running', []))
+                    pending_jobs = len(queue_status.get('queue_pending', []))
+                    print(f"   📊 Queue: {running_jobs} en cours, {pending_jobs} en attente")
+                except Exception as e:
+                    print(f"   ⚠️  Impossible de vérifier la queue: {e}")
+            else:
+                print(f"⚠️  Stable Video Diffusion configuré mais non accessible sur {Config.SVD_API_URL}")
+                print("💡 Vérifiez que ComfyUI est démarré avec: python main.py --port 7862")
+                
+        except ImportError as e:
+            print(f"❌ Module Stable Video Diffusion manquant: {e}")
+            print("💡 Le fichier services/stable_video_diffusion_generator.py est requis")
+        except Exception as e:
+            print(f"❌ Erreur Stable Video Diffusion: {e}")
+    else:
+        print("⚠️  Stable Video Diffusion désactivé dans la configuration")
+        print("💡 Pour activer : SET USE_STABLE_VIDEO_DIFFUSION=True dans .env")
+    
+    # Si aucun générateur de vidéos n'est disponible
+    if not app.svd_generator or not getattr(app.svd_generator, 'is_available', False):
+        print("⚠️  Aucun service de génération de vidéos disponible")
+        print("💡 Pour activer la génération de vidéos:")
+        print("   1. Installez ComfyUI: git clone https://github.com/comfyanonymous/ComfyUI")
+        print("   2. Téléchargez SVD: huggingface-cli download stabilityai/stable-video-diffusion-img2vid")
+        print("   3. Démarrez: cd ComfyUI && python main.py --port 7862")
+        print("   4. Activez dans .env: USE_STABLE_VIDEO_DIFFUSION=True")
+        
+        # Créer un générateur factice pour éviter les erreurs
+        class PlaceholderVideoGenerator:
+            def __init__(self):
+                self.is_available = False
+            
+            def generate_video_from_image(self, *args, **kwargs):
+                from models import VideoGenerationResult
+                return VideoGenerationResult.error_result(
+                    "Aucun service de génération de vidéos configuré"
+                )
+            
+            def generate_video_from_text(self, *args, **kwargs):
+                from models import VideoGenerationResult
+                return VideoGenerationResult.error_result(
+                    "Aucun service de génération de vidéos configuré"
+                )
+            
+            def get_status(self):
+                return {
+                    'available': False,
+                    'service': 'Non configuré'
+                }
+            
+            def get_queue_status(self):
+                return {'queue_running': [], 'queue_pending': []}
+        
+        app.svd_generator = PlaceholderVideoGenerator()
+        print("🔧 Générateur vidéo placeholder créé")
+    
+    # ... (reste du code existant) ...
+    
+    # RÉSUMÉ FINAL (mise à jour)
+    print("\n" + "=" * 50)
+    print("📊 RÉSUMÉ DES SERVICES")
+    print("=" * 50)
+    
+    services_status = {
+        'Base de données': '✅' if app.db_manager else '❌',
+        'Contenu (IA)': '✅' if app.content_generator else '❌',
+        'Images (IA)': '✅' if app.image_generator and (not hasattr(app.image_generator, 'is_available') or app.image_generator.is_available) else '❌',
+        'Vidéos (IA)': '✅' if app.svd_generator and getattr(app.svd_generator, 'is_available', False) else '⚠️',
+        'Instagram': '✅' if app.instagram_publisher else '⚠️',
+        'Scheduler': '✅' if app.scheduler else '⚠️'
+    }
+    
+    for service, status in services_status.items():
+        print(f"{status} {service}")
+    
+    # Services IA actifs (mise à jour)
+    ai_services = []
+    if app.content_generator:
+        if hasattr(app.content_generator, 'model'):
+            ai_services.append(f"Contenu: Ollama ({app.content_generator.model})")
+        else:
+            ai_services.append("Contenu: OpenAI")
+    
+    if app.image_generator:
+        if hasattr(app.image_generator, 'is_available'):
+            if hasattr(app, 'sd_generator') and app.sd_generator and app.sd_generator.is_available:
+                ai_services.append("Images: Stable Diffusion")
+            elif hasattr(app, 'hf_generator') and app.hf_generator:
+                ai_services.append("Images: Hugging Face")
+        elif hasattr(app.image_generator, 'api_key'):
+            ai_services.append("Images: OpenAI DALL-E")
+        else:
+            ai_services.append("Images: Non disponible")
+    
+    if app.svd_generator and getattr(app.svd_generator, 'is_available', False):
+        ai_services.append("Vidéos: Stable Video Diffusion")
+    else:
+        ai_services.append("Vidéos: Non disponible")
+    
+    if ai_services:
+        print(f"\n🎯 Services IA actifs: {', '.join(ai_services)}")
+    else:
+        print(f"\n⚠️  Aucun service IA actif")
+    
+    # Score (mise à jour)
+    active_count = sum(1 for status in services_status.values() if status == '✅')
+    total_count = len(services_status)
+    print(f"\n📈 Score: {active_count}/{total_count} services actifs")
+    
+    if active_count >= 5:
+        print("✅ Configuration complète")
+    elif active_count >= 3:
+        print("⚠️  Configuration fonctionnelle - Certaines fonctionnalités limitées")
+    else:
+        print("❌ Configuration insuffisante")
+
 
 def import_services():
     """Importe les services disponibles (VERSION MISE À JOUR)"""

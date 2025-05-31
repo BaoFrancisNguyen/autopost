@@ -640,3 +640,182 @@ def inject_global_vars():
             'scheduler': hasattr(current_app, 'scheduler') and current_app.scheduler is not None,
         }
     }
+
+# route pour la génération de vidéos
+
+@main_bp.route('/test-video-generation')
+def test_video_generation_page():
+    """Page de test de génération de vidéos"""
+    try:
+        # Vérifier les services disponibles
+        services_available = {
+            'stable_video_diffusion': (
+                hasattr(current_app, 'svd_generator') and 
+                current_app.svd_generator and 
+                current_app.svd_generator.is_available
+            ),
+            'stable_diffusion': (
+                hasattr(current_app, 'sd_generator') and 
+                current_app.sd_generator and 
+                current_app.sd_generator.is_available
+            )
+        }
+        
+        return render_template('test_video_generation.html', services=services_available)
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur page test vidéo: {e}")
+        flash('Erreur lors du chargement de la page de test vidéo', 'error')
+        return redirect(url_for('main.index'))
+
+
+@main_bp.route('/video-gallery')
+def video_gallery():
+    """Page de galerie des vidéos générées"""
+    try:
+        import glob
+        
+        # Récupérer toutes les vidéos du dossier generated/videos
+        video_folder = 'generated/videos'
+        if not os.path.exists(video_folder):
+            os.makedirs(video_folder)
+        
+        # Patterns de fichiers vidéo
+        video_patterns = ['*.mp4', '*.webm', '*.avi', '*.mov']
+        videos = []
+        
+        for pattern in video_patterns:
+            files = glob.glob(os.path.join(video_folder, pattern))
+            for file_path in files:
+                try:
+                    # Informations sur le fichier
+                    filename = os.path.basename(file_path)
+                    stats = os.stat(file_path)
+                    created_time = datetime.fromtimestamp(stats.st_ctime)
+                    file_size = stats.st_size
+                    
+                    # Essayer d'extraire des infos du nom de fichier
+                    name_parts = filename.replace('.mp4', '').replace('.webm', '').split('_')
+                    description = ' '.join(name_parts[2:]) if len(name_parts) > 2 else 'Vidéo générée'
+                    
+                    videos.append({
+                        'filename': filename,
+                        'url': f'/static/generated/videos/{filename}',
+                        'created_time': created_time,
+                        'file_size': file_size,
+                        'description': description[:50],
+                        'duration': None  # Pourrait être extrait avec ffmpeg
+                    })
+                except Exception as e:
+                    current_app.logger.warning(f"Erreur lecture vidéo {file_path}: {e}")
+        
+        # Trier par date de création (plus récent en premier)
+        videos.sort(key=lambda x: x['created_time'], reverse=True)
+        
+        return render_template('video_gallery.html', videos=videos, total_videos=len(videos))
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur galerie vidéos: {e}")
+        flash('Erreur lors du chargement de la galerie vidéos', 'error')
+        return redirect(url_for('main.index'))
+
+
+# Mise à jour de la route create_post pour supporter les vidéos
+@main_bp.route('/create-video-post', methods=['GET', 'POST'])
+def create_video_post():
+    """Création d'un post avec vidéo"""
+    if request.method == 'POST':
+        try:
+            # Récupérer les données du formulaire
+            title = request.form.get('title', '').strip()
+            topic = request.form.get('topic', '').strip()
+            video_prompt = request.form.get('video_prompt', '').strip()
+            tone = request.form.get('tone', 'engageant')
+            duration = int(request.form.get('duration', 3))
+            fps = int(request.form.get('fps', 8))
+            
+            # Validation
+            if not all([title, topic, video_prompt]):
+                flash('Tous les champs obligatoires doivent être remplis', 'error')
+                return render_template('create_video_post.html')
+            
+            # Vérifier que SVD est disponible
+            if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+                flash('Service de génération vidéo non disponible', 'error')
+                return render_template('create_video_post.html')
+            
+            if not current_app.svd_generator.is_available:
+                flash('Stable Video Diffusion non accessible', 'error')
+                return render_template('create_video_post.html')
+            
+            current_app.logger.info(f"Création d'un post vidéo: {title}")
+            
+            # Génération du contenu texte
+            description = ""
+            hashtags = ""
+            
+            if hasattr(current_app, 'content_generator') and current_app.content_generator:
+                flash('🤖 Génération du contenu texte...', 'info')
+                result = current_app.content_generator.generate_description_and_hashtags(
+                    topic, tone
+                )
+                if result.success:
+                    description = result.description
+                    hashtags = result.hashtags
+                    flash('✅ Contenu texte généré !', 'success')
+            
+            # Génération de la vidéo
+            flash('🎬 Génération de la vidéo en cours... (1-3 minutes)', 'info')
+            
+            # Utiliser generate_video_from_text qui génère d'abord une image puis la vidéo
+            video_result = current_app.svd_generator.generate_video_from_text(
+                prompt=video_prompt,
+                duration_seconds=duration
+            )
+            
+            if video_result.success:
+                flash('✅ Vidéo générée avec succès !', 'success')
+                
+                # Créer le post avec vidéo
+                post = Post(
+                    title=title,
+                    description=description,
+                    hashtags=hashtags,
+                    media_prompt=video_prompt,
+                    topic=topic,
+                    tone=tone,
+                    video_path=video_result.video_path,
+                    media_type='video',
+                    status='draft'
+                )
+                
+                if hasattr(current_app, 'db_manager') and current_app.db_manager:
+                    post_id = current_app.db_manager.create_post(post)
+                    if post_id:
+                        flash(f'🎉 Post vidéo "{title}" créé avec succès !', 'success')
+                        return redirect(url_for('main.preview_post', post_id=post_id))
+            else:
+                flash(f'❌ Erreur génération vidéo: {video_result.error_message}', 'error')
+                
+        except Exception as e:
+            current_app.logger.error(f"Erreur création post vidéo: {e}")
+            flash(f'❌ Erreur: {str(e)}', 'error')
+    
+    return render_template('create_video_post.html')
+
+
+# Ajouter au contexte global pour les templates
+@main_bp.app_context_processor
+def inject_global_vars():
+    """Injecte des variables globales dans tous les templates"""
+    return {
+        'app_name': 'Instagram Automation',
+        'current_year': datetime.now().year,
+        'services_available': {
+            'ai_generator': hasattr(current_app, 'image_generator') and current_app.image_generator is not None,
+            'content_generator': hasattr(current_app, 'content_generator') and current_app.content_generator is not None,
+            'video_generator': hasattr(current_app, 'svd_generator') and current_app.svd_generator is not None and getattr(current_app.svd_generator, 'is_available', False),
+            'instagram_publisher': hasattr(current_app, 'instagram_publisher') and current_app.instagram_publisher is not None,
+            'scheduler': hasattr(current_app, 'scheduler') and current_app.scheduler is not None,
+        }
+    }

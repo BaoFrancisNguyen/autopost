@@ -1,0 +1,1034 @@
+{% extends "base.html" %}
+
+{% block title %}Galerie Vidéos - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1>
+            <i class="fas fa-film me-3 text-success"></i>Galerie des Vidéos IA
+        </h1>
+        <p class="text-muted">
+            <i class="fas fa-magic me-2"></i>{{ total_videos }} vidéo(s) générée(s) avec Stable Video Diffusion
+            {% if total_videos > 0 %}
+                <span class="badge bg-success ms-2">Actif</span>
+            {% endif %}
+        </p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <div class="btn-group">
+            <a href="{{ url_for('main.create_video_post') }}" class="btn btn-success">
+                <i class="fas fa-video me-2"></i>Nouveau Post Vidéo
+            </a>
+            <button type="button" class="btn btn-outline-info dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown">
+                <span class="visually-hidden">Toggle Dropdown</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('main.test_video_generation_page') }}">
+                    <i class="fas fa-flask me-2"></i>Test Génération
+                </a></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.create_post') }}">
+                    <i class="fas fa-image me-2"></i>Post avec Image
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('main.image_gallery') }}">
+                    <i class="fas fa-images me-2"></i>Galerie Images
+                </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% if videos %}
+    <!-- Statistiques rapides -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-gradient bg-primary text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-film fa-2x mb-2"></i>
+                    <h4 class="mb-0">{{ total_videos }}</h4>
+                    <small>Vidéos Total</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-gradient bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-day fa-2x mb-2"></i>
+                    <h4 class="mb-0" id="videos-today">0</h4>
+                    <small>Aujourd'hui</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-gradient bg-info text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-hdd fa-2x mb-2"></i>
+                    <h4 class="mb-0" id="total-size">0 MB</h4>
+                    <small>Taille Total</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-gradient bg-warning text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <h4 class="mb-0" id="latest-video">-</h4>
+                    <small>Dernière Vidéo</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres et contrôles -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Filtres et Options
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Rechercher</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search-input" 
+                               placeholder="Description, nom de fichier...">
+                        <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Trier par</label>
+                    <select class="form-select" id="sort-select">
+                        <option value="date-desc">Plus récentes</option>
+                        <option value="date-asc">Plus anciennes</option>
+                        <option value="name-asc">Nom A-Z</option>
+                        <option value="size-desc">Taille (grandes)</option>
+                        <option value="size-asc">Taille (petites)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Affichage</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="view-mode" id="grid-view" checked>
+                        <label class="btn btn-outline-primary" for="grid-view" title="Vue grille">
+                            <i class="fas fa-th"></i>
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="view-mode" id="list-view">
+                        <label class="btn btn-outline-primary" for="list-view" title="Vue liste">
+                            <i class="fas fa-list"></i>
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="view-mode" id="large-view">
+                        <label class="btn btn-outline-primary" for="large-view" title="Vue large">
+                            <i class="fas fa-expand"></i>
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Actions</label>
+                    <div class="btn-group w-100">
+                        <button class="btn btn-outline-info" id="refresh-gallery" title="Actualiser">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                        <button class="btn btn-outline-success" id="download-all" title="Télécharger toutes">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Zone Danger</label>
+                    <button class="btn btn-outline-danger w-100" id="clear-gallery">
+                        <i class="fas fa-trash me-2"></i>Vider la galerie
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue grille (par défaut) -->
+    <div id="grid-container">
+        <div class="row" id="videos-grid">
+            {% for video in videos %}
+            <div class="col-lg-4 col-md-6 mb-4 video-item" 
+                 data-name="{{ video.filename }}" 
+                 data-date="{{ video.created_time.isoformat() }}"
+                 data-size="{{ video.file_size }}"
+                 data-description="{{ video.description }}">
+                <div class="card h-100 video-card">
+                    <div class="position-relative video-container">
+                        <video class="card-img-top video-thumbnail" 
+                               style="height: 280px; object-fit: cover; cursor: pointer;"
+                               onclick="openVideoModal('{{ video.url }}', '{{ video.filename }}', '{{ video.description }}', '{{ video.created_time.strftime('%d/%m/%Y %H:%M') }}')"
+                               muted loop playsinline
+                               onmouseover="playVideo(this)" 
+                               onmouseout="pauseVideo(this)">
+                            <source src="{{ video.url }}" type="video/mp4">
+                            Votre navigateur ne supporte pas la vidéo HTML5.
+                        </video>
+                        
+                        <!-- Overlay avec infos -->
+                        <div class="position-absolute top-0 start-0 w-100 h-100 video-overlay d-flex align-items-center justify-content-center opacity-0">
+                            <i class="fas fa-play-circle fa-4x text-white"></i>
+                        </div>
+                        
+                        <!-- Badge de taille -->
+                        <div class="position-absolute top-0 end-0 m-2">
+                            <span class="badge bg-dark bg-opacity-75">
+                                {{ "%.1f"|format(video.file_size / (1024*1024)) }} MB
+                            </span>
+                        </div>
+                        
+                        <!-- Badge de durée (estimation) -->
+                        <div class="position-absolute bottom-0 start-0 m-2">
+                            <span class="badge bg-primary bg-opacity-75">
+                                <i class="fas fa-clock me-1"></i>~3s
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <h6 class="card-title">{{ video.description[:50] }}{% if video.description|length > 50 %}...{% endif %}</h6>
+                        <p class="card-text small text-muted mb-2">
+                            <i class="fas fa-calendar me-1"></i>{{ video.created_time.strftime('%d/%m/%Y à %H:%M') }}
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <code>{{ video.filename[:20] }}{% if video.filename|length > 20 %}...{% endif %}</code>
+                            </small>
+                            <div class="badge bg-light text-dark">SVD</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer p-2">
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="downloadVideo('{{ video.url }}', '{{ video.filename }}')"
+                                    title="Télécharger">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" 
+                                    onclick="useForPost('{{ video.url }}', '{{ video.description }}')"
+                                    title="Utiliser pour un post">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" 
+                                    onclick="shareVideo('{{ video.url }}', '{{ video.filename }}')"
+                                    title="Partager">
+                                <i class="fas fa-share"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="deleteVideo('{{ video.filename }}')"
+                                    title="Supprimer">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Vue liste -->
+    <div id="list-container" style="display: none;">
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 120px;">Aperçu</th>
+                            <th>Description</th>
+                            <th style="width: 200px;">Nom de fichier</th>
+                            <th style="width: 120px;">Date</th>
+                            <th style="width: 80px;">Taille</th>
+                            <th style="width: 150px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="videos-list">
+                        {% for video in videos %}
+                        <tr class="video-item" 
+                            data-name="{{ video.filename }}" 
+                            data-date="{{ video.created_time.isoformat() }}"
+                            data-size="{{ video.file_size }}"
+                            data-description="{{ video.description }}">
+                            <td>
+                                <video style="width: 100px; height: 70px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                                       onclick="openVideoModal('{{ video.url }}', '{{ video.filename }}', '{{ video.description }}', '{{ video.created_time.strftime('%d/%m/%Y %H:%M') }}')"
+                                       muted loop playsinline
+                                       onmouseover="playVideo(this)" 
+                                       onmouseout="pauseVideo(this)">
+                                    <source src="{{ video.url }}" type="video/mp4">
+                                </video>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>{{ video.description[:60] }}{% if video.description|length > 60 %}...{% endif %}</strong>
+                                    <br><span class="badge bg-success">Stable Video Diffusion</span>
+                                </div>
+                            </td>
+                            <td>
+                                <code class="small">{{ video.filename }}</code>
+                            </td>
+                            <td>
+                                <small>{{ video.created_time.strftime('%d/%m/%Y') }}</small><br>
+                                <small class="text-muted">{{ video.created_time.strftime('%H:%M') }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ "%.1f"|format(video.file_size / (1024*1024)) }}</strong><br>
+                                <small class="text-muted">MB</small>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-primary btn-sm" 
+                                            onclick="downloadVideo('{{ video.url }}', '{{ video.filename }}')"
+                                            title="Télécharger">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" 
+                                            onclick="useForPost('{{ video.url }}', '{{ video.description }}')"
+                                            title="Utiliser pour un post">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" 
+                                            onclick="deleteVideo('{{ video.filename }}')"
+                                            title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vue large -->
+    <div id="large-container" style="display: none;">
+        <div class="row" id="videos-large">
+            {% for video in videos %}
+            <div class="col-12 mb-4 video-item" 
+                 data-name="{{ video.filename }}" 
+                 data-date="{{ video.created_time.isoformat() }}"
+                 data-size="{{ video.file_size }}"
+                 data-description="{{ video.description }}">
+                <div class="card">
+                    <div class="row g-0">
+                        <div class="col-md-4">
+                            <video class="img-fluid rounded-start video-thumbnail" 
+                                   style="width: 100%; height: 300px; object-fit: cover; cursor: pointer;"
+                                   onclick="openVideoModal('{{ video.url }}', '{{ video.filename }}', '{{ video.description }}', '{{ video.created_time.strftime('%d/%m/%Y %H:%M') }}')"
+                                   muted loop playsinline controls
+                                   onmouseover="playVideo(this)" 
+                                   onmouseout="pauseVideo(this)">
+                                <source src="{{ video.url }}" type="video/mp4">
+                            </video>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ video.description }}</h5>
+                                <p class="card-text">
+                                    <span class="badge bg-success me-2">Stable Video Diffusion</span>
+                                    <span class="badge bg-info me-2">{{ "%.1f"|format(video.file_size / (1024*1024)) }} MB</span>
+                                    <span class="badge bg-secondary">~3s</span>
+                                </p>
+                                <p class="card-text">
+                                    <strong>Fichier:</strong> <code>{{ video.filename }}</code><br>
+                                    <strong>Créé:</strong> {{ video.created_time.strftime('%d/%m/%Y à %H:%M') }}
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-primary" 
+                                            onclick="downloadVideo('{{ video.url }}', '{{ video.filename }}')">
+                                        <i class="fas fa-download me-2"></i>Télécharger
+                                    </button>
+                                    <button class="btn btn-success" 
+                                            onclick="useForPost('{{ video.url }}', '{{ video.description }}')">
+                                        <i class="fas fa-plus me-2"></i>Utiliser pour post
+                                    </button>
+                                    <button class="btn btn-outline-info" 
+                                            onclick="shareVideo('{{ video.url }}', '{{ video.filename }}')">
+                                        <i class="fas fa-share me-2"></i>Partager
+                                    </button>
+                                    <button class="btn btn-outline-danger" 
+                                            onclick="deleteVideo('{{ video.filename }}')">
+                                        <i class="fas fa-trash me-2"></i>Supprimer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+{% else %}
+    <!-- Galerie vide -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="fas fa-film fa-5x text-muted mb-4"></i>
+            <h4 class="text-muted">Aucune vidéo générée</h4>
+            <p class="text-muted mb-4">Commencez par créer votre première vidéo avec Stable Video Diffusion !</p>
+        </div>
+        
+        <!-- Guide rapide -->
+        <div class="card mx-auto mb-4" style="max-width: 600px;">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-rocket me-2"></i>Comment créer votre première vidéo IA ?
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-start">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-1 me-2 text-success"></i>Méthode Simple</h6>
+                        <ol class="small">
+                            <li>Cliquez sur "Nouveau Post Vidéo"</li>
+                            <li>Décrivez votre vidéo</li>
+                            <li>L'IA génère automatiquement</li>
+                            <li>Publiez sur Instagram</li>
+                        </ol>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-2 me-2 text-info"></i>Méthode Test</h6>
+                        <ol class="small">
+                            <li>Allez dans "Test Génération"</li>
+                            <li>Essayez différents prompts</li>
+                            <li>Ajustez les paramètres</li>
+                            <li>Utilisez le résultat</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Boutons d'action -->
+        <div class="d-flex gap-3 justify-content-center mb-4">
+            <a href="{{ url_for('main.create_video_post') }}" class="btn btn-success btn-lg">
+                <i class="fas fa-video me-2"></i>Créer ma première vidéo
+            </a>
+            <a href="{{ url_for('main.test_video_generation_page') }}" class="btn btn-outline-info btn-lg">
+                <i class="fas fa-flask me-2"></i>Tester la génération
+            </a>
+        </div>
+        
+        <!-- Exemples de prompts -->
+        <div class="card mx-auto" style="max-width: 800px;">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>Exemples de prompts pour commencer
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-success">Ambiances calmes</h6>
+                        <ul class="list-unstyled small">
+                            <li>• "ocean waves gently rolling onto beach"</li>
+                            <li>• "coffee steam rising in morning light"</li>
+                            <li>• "campfire flames dancing in forest"</li>
+                            <li>• "clouds moving across blue sky"</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-info">Scènes dynamiques</h6>
+                        <ul class="list-unstyled small">
+                            <li>• "rain drops on window with city lights"</li>
+                            <li>• "leaves falling in autumn park"</li>
+                            <li>• "waterfall cascading down rocks"</li>
+                            <li>• "northern lights dancing in sky"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Modal d'aperçu vidéo -->
+<div class="modal fade" id="videoModal" tabindex="-1" aria-labelledby="videoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="videoModalLabel">
+                    <i class="fas fa-play-circle me-2"></i>Aperçu de la vidéo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <video id="modalVideo" class="img-fluid rounded mb-3" 
+                       style="max-height: 70vh; width: 100%;" 
+                       controls autoplay muted loop>
+                    <source src="" type="video/mp4">
+                    Votre navigateur ne supporte pas la vidéo HTML5.
+                </video>
+                <div id="modalVideoInfo" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" id="modalDownload">
+                    <i class="fas fa-download me-1"></i>Télécharger
+                </button>
+                <button type="button" class="btn btn-success" id="modalUseForPost">
+                    <i class="fas fa-plus me-1"></i>Utiliser pour un post
+                </button>
+                <button type="button" class="btn btn-outline-info" id="modalShare">
+                    <i class="fas fa-share me-1"></i>Partager
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation suppression -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash me-2 text-danger"></i>Confirmer la suppression
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer cette vidéo ?</p>
+                <p class="text-muted small">Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">
+                    <i class="fas fa-trash me-1"></i>Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentVideoData = {};
+let currentDeleteTarget = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Éléments DOM
+    const searchInput = document.getElementById('search-input');
+    const sortSelect = document.getElementById('sort-select');
+    const gridView = document.getElementById('grid-view');
+    const listView = document.getElementById('list-view');
+    const largeView = document.getElementById('large-view');
+    const gridContainer = document.getElementById('grid-container');
+    const listContainer = document.getElementById('list-container');
+    const largeContainer = document.getElementById('large-container');
+    
+    // Charger les statistiques
+    loadVideoStats();
+    
+    // Event listeners pour les contrôles
+    if (searchInput) {
+        searchInput.addEventListener('input', filterVideos);
+        document.getElementById('search-btn').addEventListener('click', filterVideos);
+    }
+    
+    if (sortSelect) {
+        sortSelect.addEventListener('change', sortVideos);
+    }
+    
+    // Changements de vue
+    if (gridView) {
+        gridView.addEventListener('change', function() {
+            if (this.checked) {
+                showView('grid');
+            }
+        });
+    }
+    
+    if (listView) {
+        listView.addEventListener('change', function() {
+            if (this.checked) {
+                showView('list');
+            }
+        });
+    }
+    
+    if (largeView) {
+        largeView.addEventListener('change', function() {
+            if (this.checked) {
+                showView('large');
+            }
+        });
+    }
+    
+    // Actions
+    const refreshBtn = document.getElementById('refresh-gallery');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            location.reload();
+        });
+    }
+    
+    const downloadAllBtn = document.getElementById('download-all');
+    if (downloadAllBtn) {
+        downloadAllBtn.addEventListener('click', downloadAllVideos);
+    }
+    
+    const clearBtn = document.getElementById('clear-gallery');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (confirm('Êtes-vous sûr de vouloir supprimer TOUTES les vidéos générées ? Cette action est irréversible.')) {
+                clearVideoGallery();
+            }
+        });
+    }
+    
+    // Configuration des modals
+    setupModals();
+});
+
+function loadVideoStats() {
+    fetch('/api/video-stats')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.stats) {
+            const stats = data.stats;
+            
+            // Mettre à jour les compteurs
+            const todayElement = document.getElementById('videos-today');
+            if (todayElement) {
+                todayElement.textContent = stats.videos_today || 0;
+            }
+            
+            const sizeElement = document.getElementById('total-size');
+            if (sizeElement) {
+                sizeElement.textContent = (stats.total_size_mb || 0) + ' MB';
+            }
+            
+            const latestElement = document.getElementById('latest-video');
+            if (latestElement && stats.latest_video) {
+                const date = new Date(stats.latest_video.created);
+                latestElement.textContent = date.toLocaleDateString('fr-FR');
+            }
+        }
+    })
+    .catch(error => console.log('Erreur stats vidéos:', error));
+}
+
+function showView(viewType) {
+    const containers = {
+        'grid': document.getElementById('grid-container'),
+        'list': document.getElementById('list-container'),
+        'large': document.getElementById('large-container')
+    };
+    
+    // Masquer toutes les vues
+    Object.values(containers).forEach(container => {
+        if (container) container.style.display = 'none';
+    });
+    
+    // Afficher la vue sélectionnée
+    if (containers[viewType]) {
+        containers[viewType].style.display = 'block';
+    }
+}
+
+function filterVideos() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    const items = document.querySelectorAll('.video-item');
+    
+    items.forEach(item => {
+        const description = item.dataset.description.toLowerCase();
+        const name = item.dataset.name.toLowerCase();
+        
+        if (description.includes(query) || name.includes(query)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function sortVideos() {
+    const sortBy = document.getElementById('sort-select').value;
+    const containers = ['#videos-grid', '#videos-list', '#videos-large'];
+    
+    containers.forEach(containerSelector => {
+        const container = document.querySelector(containerSelector);
+        if (!container) return;
+        
+        const items = Array.from(container.querySelectorAll('.video-item'));
+        items.sort(getSortFunction(sortBy));
+        items.forEach(item => container.appendChild(item));
+    });
+}
+
+function getSortFunction(sortBy) {
+    switch (sortBy) {
+        case 'date-desc':
+            return (a, b) => new Date(b.dataset.date) - new Date(a.dataset.date);
+        case 'date-asc':
+            return (a, b) => new Date(a.dataset.date) - new Date(b.dataset.date);
+        case 'name-asc':
+            return (a, b) => a.dataset.name.localeCompare(b.dataset.name);
+        case 'size-desc':
+            return (a, b) => parseInt(b.dataset.size) - parseInt(a.dataset.size);
+        case 'size-asc':
+            return (a, b) => parseInt(a.dataset.size) - parseInt(b.dataset.size);
+        default:
+            return (a, b) => 0;
+    }
+}
+
+function playVideo(videoElement) {
+    if (videoElement && videoElement.play) {
+        videoElement.play().catch(error => {
+            console.log('Erreur lecture vidéo:', error);
+        });
+    }
+}
+
+function pauseVideo(videoElement) {
+    if (videoElement && videoElement.pause) {
+        videoElement.pause();
+        videoElement.currentTime = 0;
+    }
+}
+
+function openVideoModal(url, filename, description, date) {
+    currentVideoData = { url, filename, description, date };
+    
+    const modalVideo = document.getElementById('modalVideo');
+    const videoSource = modalVideo.querySelector('source');
+    
+    if (videoSource) {
+        videoSource.src = url;
+        modalVideo.load();
+    }
+    
+    document.getElementById('videoModalLabel').innerHTML = `
+        <i class="fas fa-play-circle me-2"></i>${filename}
+    `;
+    
+    document.getElementById('modalVideoInfo').innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Description:</strong><br>${description}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Créé le:</strong><br>${date}</p>
+            </div>
+        </div>
+    `;
+    
+    new bootstrap.Modal(document.getElementById('videoModal')).show();
+}
+
+function setupModals() {
+    // Boutons du modal vidéo
+    document.getElementById('modalDownload').onclick = () => {
+        if (currentVideoData.url && currentVideoData.filename) {
+            downloadVideo(currentVideoData.url, currentVideoData.filename);
+        }
+    };
+    
+    document.getElementById('modalUseForPost').onclick = () => {
+        if (currentVideoData.url && currentVideoData.description) {
+            useForPost(currentVideoData.url, currentVideoData.description);
+        }
+    };
+    
+    document.getElementById('modalShare').onclick = () => {
+        if (currentVideoData.url && currentVideoData.filename) {
+            shareVideo(currentVideoData.url, currentVideoData.filename);
+        }
+    };
+    
+    // Modal de suppression
+    document.getElementById('confirmDelete').onclick = function() {
+        if (currentDeleteTarget) {
+            performDelete(currentDeleteTarget);
+            currentDeleteTarget = null;
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+        }
+    };
+}
+
+function downloadVideo(url, filename) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Notification
+    showNotification(`Téléchargement de ${filename} démarré`, 'success');
+}
+
+function useForPost(videoUrl, description) {
+    const params = new URLSearchParams({
+        generated_video: videoUrl,
+        media_type: 'video',
+        prompt: description
+    });
+    window.location.href = `/create?${params.toString()}`;
+}
+
+function shareVideo(url, filename) {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Vidéo générée par IA',
+            text: `Découvrez cette vidéo créée avec Stable Video Diffusion: ${filename}`,
+            url: url
+        }).catch(error => console.log('Erreur partage:', error));
+    } else {
+        // Fallback: copier l'URL
+        navigator.clipboard.writeText(window.location.origin + url).then(() => {
+            showNotification('Lien copié dans le presse-papiers', 'success');
+        }).catch(() => {
+            showNotification('Impossible de copier le lien', 'error');
+        });
+    }
+}
+
+function deleteVideo(filename) {
+    currentDeleteTarget = filename;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function performDelete(filename) {
+    fetch('/api/delete-video', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename: filename })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Supprimer l'élément du DOM
+            document.querySelectorAll(`[data-name="${filename}"]`).forEach(el => {
+                el.remove();
+            });
+            
+            // Mettre à jour le compteur
+            const totalElement = document.querySelector('p.text-muted');
+            const currentCount = document.querySelectorAll('.video-item').length;
+            if (totalElement) {
+                totalElement.innerHTML = `<i class="fas fa-magic me-2"></i>${currentCount} vidéo(s) générée(s) avec Stable Video Diffusion`;
+            }
+            
+            // Recharger si plus de vidéos
+            if (currentCount === 0) {
+                location.reload();
+            }
+            
+            showNotification(`Vidéo ${filename} supprimée`, 'success');
+            loadVideoStats(); // Recharger les stats
+        } else {
+            showNotification(`Erreur suppression: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification(`Erreur: ${error.message}`, 'error');
+    });
+}
+
+function clearVideoGallery() {
+    fetch('/api/clear-video-gallery', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`${data.deleted_count} vidéo(s) supprimée(s)`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(`Erreur: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        showNotification(`Erreur: ${error.message}`, 'error');
+    });
+}
+
+function downloadAllVideos() {
+    const videos = document.querySelectorAll('.video-item');
+    
+    if (videos.length === 0) {
+        showNotification('Aucune vidéo à télécharger', 'warning');
+        return;
+    }
+    
+    if (!confirm(`Télécharger toutes les ${videos.length} vidéos ?`)) {
+        return;
+    }
+    
+    videos.forEach((video, index) => {
+        setTimeout(() => {
+            const videoElement = video.querySelector('video source');
+            if (videoElement) {
+                const url = videoElement.src;
+                const filename = video.dataset.name;
+                downloadVideo(url, filename);
+            }
+        }, index * 1000); // Délai entre chaque téléchargement
+    });
+    
+    showNotification(`Téléchargement de ${videos.length} vidéos démarré`, 'info');
+}
+</script>
+
+<style>
+/* Styles CSS pour la galerie vidéos */
+.video-card {
+    transition: all 0.3s ease;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.video-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.video-container {
+    overflow: hidden;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.video-thumbnail {
+    transition: transform 0.3s ease;
+}
+
+.video-card:hover .video-thumbnail {
+    transform: scale(1.05);
+}
+
+.video-overlay {
+    background: linear-gradient(45deg, rgba(0,0,0,0.3), rgba(0,0,0,0.1));
+    transition: opacity 0.3s ease;
+}
+
+.video-card:hover .video-overlay {
+    opacity: 1 !important;
+}
+
+/* Badges personnalisés */
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Boutons d'action */
+.btn-group .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Table responsive */
+.table th {
+    background-color: #343a40;
+    color: white;
+    border: none;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+    border-color: #dee2e6;
+}
+
+/* Modal */
+.modal-xl {
+    max-width: 90%;
+}
+
+.modal video {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Vue large */
+.video-thumbnail {
+    border-radius: 0.375rem;
+}
+
+/* Statistiques */
+.bg-gradient {
+    background: linear-gradient(45deg, var(--bs-primary), var(--bs-info)) !important;
+}
+
+.card h4 {
+    font-weight: 700;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .video-thumbnail {
+        height: 200px !important;
+    }
+    
+    .btn-group .btn-sm {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+    
+    .modal-xl {
+        max-width: 95%;
+    }
+    
+    .card-body h4 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.video-item {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Effets hover pour les badges */
+.badge {
+    transition: all 0.2s ease;
+}
+
+.video-card:hover .badge {
+    transform: scale(1.1);
+}
+
+/* Amélioration des contrôles */
+.form-control:focus, .form-select:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Amélioration du dropdown */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.dropdown-item:hover {
+    background-color: rgba(40, 167, 69, 0.1);
+    transform: translateX(5px);
+}
+</style>
+{% endblock %}

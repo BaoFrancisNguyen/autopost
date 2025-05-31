@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Créer un Post Vidéo - Instagram Automation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-video me-2"></i>Créer un post avec vidéo IA</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="create-video-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Titre du post *</label>
+                                <input type="text" class="form-control" name="title" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Ton du contenu</label>
+                                <select class="form-select" name="tone">
+                                    <option value="engageant">Engageant</option>
+                                    <option value="professionnel">Professionnel</option>
+                                    <option value="décontracté">Décontracté</option>
+                                    <option value="inspirant">Inspirant</option>
+                                    <option value="humoristique">Humoristique</option>
+                                    <option value="éducatif">Éducatif</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Sujet/Topic *</label>
+                        <input type="text" class="form-control" name="topic" 
+                               placeholder="Ex: café matinal, coucher de soleil, nature..." required>
+                        <div class="form-text">Utilisé pour générer automatiquement la description et les hashtags</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description de la vidéo IA *</label>
+                        <textarea class="form-control" name="video_prompt" rows="3" 
+                                  placeholder="Ex: coffee steam rising from a warm cup, morning sunlight through window, peaceful cafe atmosphere, cinematic"
+                                  required>ocean waves gently rolling onto sandy beach, golden hour lighting, peaceful seascape, cinematic style</textarea>
+                        <div class="form-text">Décrivez précisément la scène que vous voulez animer</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Durée de la vidéo</label>
+                                <input type="range" class="form-range" name="duration" 
+                                       min="1" max="10" value="3" id="duration-range">
+                                <small class="text-muted">Valeur: <span id="duration-value">3</span> secondes</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Images par seconde (FPS)</label>
+                                <select class="form-select" name="fps">
+                                    <option value="6">6 FPS (Lent, plus fluide)</option>
+                                    <option value="8" selected>8 FPS (Standard)</option>
+                                    <option value="12">12 FPS (Rapide)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle me-2"></i>Comment ça marche ?</h6>
+                        <ol class="mb-0">
+                            <li>L'IA génère d'abord une image basée sur votre description</li>
+                            <li>Stable Video Diffusion anime cette image pour créer une vidéo</li>
+                            <li>Le contenu texte est généré automatiquement avec Ollama</li>
+                            <li>Durée recommandée : 3-5 secondes pour Instagram</li>
+                        </ol>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-video me-2"></i>Créer le post vidéo avec IA
+                        </button>
+                        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Retour au dashboard
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Guide d'utilisation -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-lightbulb me-2"></i>Conseils pour de meilleures vidéos</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Prompts efficaces :</h6>
+                        <ul class="small">
+                            <li>Décrivez le mouvement souhaité</li>
+                            <li>Mentionnez l'ambiance (cinematic, peaceful, dynamic)</li>
+                            <li>Précisez l'éclairage (golden hour, soft lighting)</li>
+                            <li>Ajoutez le style (professional, artistic)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Exemples de prompts :</h6>
+                        <ul class="small">
+                            <li>"campfire flames dancing in dark forest, warm glow"</li>
+                            <li>"clouds moving across blue sky, time-lapse style"</li>
+                            <li>"coffee steam rising, morning cafe atmosphere"</li>
+                            <li>"gentle rain on window, cozy indoor feeling"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre latérale -->
+    <div class="col-md-4">
+        <!-- Statut des services -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-server me-2"></i>Services Requis</h6>
+            </div>
+            <div class="card-body">
+                {% if services_available.video_generator %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Stable Video Diffusion</strong><br>
+                        <small>Prêt pour la génération vidéo</small>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>SVD non disponible</strong><br>
+                        <small>Vérifiez ComfyUI sur port 7862</small>
+                    </div>
+                {% endif %}
+
+                {% if services_available.ai_generator %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Stable Diffusion</strong><br>
+                        <small>Images source disponibles</small>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>SD recommandé</strong><br>
+                        <small>Pour générer l'image source</small>
+                    </div>
+                {% endif %}
+
+                {% if services_available.content_generator %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Ollama</strong><br>
+                        <small>Contenu texte automatique</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-tools me-2"></i>Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('main.test_video_generation_page') }}" class="btn btn-outline-info">
+                        <i class="fas fa-flask me-2"></i>Tester la génération
+                    </a>
+                    <a href="{{ url_for('main.video_gallery') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-film me-2"></i>Galerie vidéos
+                    </a>
+                    <a href="{{ url_for('main.create_post') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-image me-2"></i>Post avec image
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const durationRange = document.getElementById('duration-range');
+    const durationValue = document.getElementById('duration-value');
+    const form = document.getElementById('create-video-form');
+    
+    // Mise à jour valeur durée
+    durationRange.addEventListener('input', function() {
+        durationValue.textContent = this.value;
+    });
+    
+    // Gestion soumission formulaire
+    form.addEventListener('submit', function(e) {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Génération en cours (1-3 min)...';
+        submitBtn.disabled = true;
+        
+        // Afficher un message d'attente
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-info mt-3';
+        alertDiv.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-3"></div>
+                <div>
+                    <strong>Génération en cours...</strong><br>
+                    <small>Cela peut prendre 1 à 3 minutes. Ne fermez pas cette page.</small>
+                </div>
+            </div>
+        `;
+        form.appendChild(alertDiv);
+    });
+});
+</script>
+{% endblock %}

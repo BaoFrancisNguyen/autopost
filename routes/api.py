@@ -419,65 +419,6 @@ def manual_check_api():
         return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
 
 
-@api_bp.route('/stats', methods=['GET'])
-def get_stats():
-    """API pour récupérer les statistiques de l'application - VERSION CORRIGÉE"""
-    try:
-        # Statistiques des posts
-        posts_stats = current_app.db_manager.get_posts_stats() if hasattr(current_app, 'db_manager') and current_app.db_manager else {}
-        
-        # Statistiques du scheduler
-        scheduler_stats = None
-        if hasattr(current_app, 'scheduler') and current_app.scheduler:
-            try:
-                scheduler_stats = current_app.scheduler.get_statistics()
-            except Exception as e:
-                current_app.logger.warning(f"Erreur stats scheduler: {e}")
-        
-        # Statut des services - VERSION CORRIGÉE
-        services_status = {
-            'database': hasattr(current_app, 'db_manager') and current_app.db_manager is not None,
-            'content_generator': hasattr(current_app, 'content_generator') and current_app.content_generator is not None,
-            'scheduler': hasattr(current_app, 'scheduler') and current_app.scheduler is not None and (current_app.scheduler.is_running if hasattr(current_app.scheduler, 'is_running') else False)
-        }
-        
-        # Services d'images - LOGIQUE CORRIGÉE
-        # Vérifier Stable Diffusion
-        if hasattr(current_app, 'sd_generator') and current_app.sd_generator:
-            services_status['stable_diffusion'] = current_app.sd_generator.is_available if hasattr(current_app.sd_generator, 'is_available') else False
-        else:
-            services_status['stable_diffusion'] = False
-        
-        # Vérifier Hugging Face
-        if hasattr(current_app, 'hf_generator') and current_app.hf_generator:
-            services_status['huggingface'] = True
-        else:
-            services_status['huggingface'] = False
-        
-        # Vérifier OpenAI (image_generator sans is_available = OpenAI)
-        if hasattr(current_app, 'image_generator') and current_app.image_generator and not hasattr(current_app.image_generator, 'is_available'):
-            services_status['openai_images'] = True
-        else:
-            services_status['openai_images'] = False
-        
-        # Instagram
-        services_status['instagram_publisher'] = hasattr(current_app, 'instagram_publisher') and current_app.instagram_publisher is not None
-        
-        return jsonify({
-            'success': True,
-            'posts': posts_stats,
-            'scheduler': scheduler_stats,
-            'services': services_status,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"Erreur API statistiques: {e}")
-        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
-    
-
-
-
 @api_bp.route('/search', methods=['GET'])
 def search_posts_api():
     """API pour rechercher des posts"""
@@ -1302,3 +1243,376 @@ def delete_video():
     except Exception as e:
         current_app.logger.error(f"Erreur API suppression vidéo: {e}")
         return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+    
+# Ajouter ces routes API à la fin de routes/api.py
+
+@api_bp.route('/clear-video-gallery', methods=['POST'])
+def clear_video_gallery():
+    """API pour vider la galerie vidéos"""
+    try:
+        import glob
+        import os
+        
+        # Patterns de fichiers vidéos
+        video_patterns = ['*.mp4', '*.webm', '*.avi', '*.mov']
+        deleted_count = 0
+        video_folder = 'generated/videos'
+        
+        if os.path.exists(video_folder):
+            for pattern in video_patterns:
+                files = glob.glob(os.path.join(video_folder, pattern))
+                for file_path in files:
+                    try:
+                        os.remove(file_path)
+                        deleted_count += 1
+                    except Exception as e:
+                        current_app.logger.warning(f"Impossible de supprimer {file_path}: {e}")
+        
+        current_app.logger.info(f"Galerie vidéos vidée: {deleted_count} vidéos supprimées")
+        
+        return jsonify({
+            'success': True,
+            'message': f'{deleted_count} vidéo(s) supprimée(s)',
+            'deleted_count': deleted_count
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API nettoyage galerie vidéos: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/test-svd-connection', methods=['GET'])
+def test_svd_connection():
+    """API pour tester la connexion SVD"""
+    try:
+        if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+            return jsonify({
+                'success': False,
+                'available': False,
+                'error': 'SVD non configuré'
+            })
+        
+        # Test de base
+        status = current_app.svd_generator.get_status()
+        queue_status = current_app.svd_generator.get_queue_status()
+        
+        return jsonify({
+            'success': True,
+            'available': status['available'],
+            'api_url': status.get('api_url'),
+            'service': status.get('service'),
+            'queue_running': len(queue_status.get('queue_running', [])),
+            'queue_pending': len(queue_status.get('queue_pending', [])),
+            'supported_formats': status.get('supported_formats', []),
+            'max_duration': status.get('max_duration', 10),
+            'test_timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur test connexion SVD: {e}")
+        return jsonify({
+            'success': False,
+            'available': False,
+            'error': f'Erreur de connexion: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/quick-video-test', methods=['POST'])
+def quick_video_test():
+    """API pour test rapide de génération vidéo"""
+    try:
+        if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+            return jsonify({'error': 'SVD non disponible'}), 503
+        
+        if not current_app.svd_generator.is_available:
+            return jsonify({'error': 'SVD non accessible'}), 503
+        
+        # Vérifier s'il y a une image de test disponible
+        test_images = []
+        import glob
+        import os
+        
+        # Chercher des images dans le dossier generated
+        if os.path.exists('generated'):
+            patterns = ['*.png', '*.jpg', '*.jpeg']
+            for pattern in patterns:
+                files = glob.glob(os.path.join('generated', pattern))
+                test_images.extend(files)
+        
+        if not test_images:
+            return jsonify({
+                'success': False,
+                'error': 'Aucune image disponible pour le test. Générez d\'abord une image.'
+            }), 400
+        
+        # Utiliser la première image trouvée
+        test_image = test_images[0]
+        
+        current_app.logger.info(f"Test rapide SVD avec image: {test_image}")
+        
+        import time
+        start_time = time.time()
+        
+        # Test avec paramètres rapides
+        result = current_app.svd_generator.generate_video_from_image(
+            image_path=test_image,
+            duration_seconds=2,  # Court pour le test
+            fps=8
+        )
+        
+        generation_time = time.time() - start_time
+        
+        if result.success:
+            import os
+            video_filename = os.path.basename(result.video_path)
+            video_url = f"/static/generated/videos/{video_filename}"
+            
+            return jsonify({
+                'success': True,
+                'video_path': result.video_path,
+                'video_url': video_url,
+                'source_image': test_image,
+                'generation_time': round(generation_time, 1),
+                'message': 'Test de génération vidéo réussi !'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.error_message
+            }), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Erreur test rapide SVD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/video-stats', methods=['GET'])
+def get_video_stats():
+    """API pour récupérer les statistiques vidéos"""
+    try:
+        import glob
+        import os
+        from datetime import datetime, timedelta
+        
+        video_folder = 'generated/videos'
+        stats = {
+            'total_videos': 0,
+            'total_size_mb': 0,
+            'videos_today': 0,
+            'videos_this_week': 0,
+            'average_size_mb': 0,
+            'latest_video': None,
+            'formats': {}
+        }
+        
+        if os.path.exists(video_folder):
+            video_patterns = ['*.mp4', '*.webm', '*.avi', '*.mov']
+            all_videos = []
+            
+            # Collecter toutes les vidéos
+            for pattern in video_patterns:
+                files = glob.glob(os.path.join(video_folder, pattern))
+                for file_path in files:
+                    try:
+                        file_stats = os.stat(file_path)
+                        created_time = datetime.fromtimestamp(file_stats.st_ctime)
+                        file_size = file_stats.st_size
+                        
+                        all_videos.append({
+                            'path': file_path,
+                            'size': file_size,
+                            'created': created_time,
+                            'format': os.path.splitext(file_path)[1].lower()
+                        })
+                    except Exception as e:
+                        current_app.logger.warning(f"Erreur lecture vidéo {file_path}: {e}")
+            
+            # Calculer les statistiques
+            now = datetime.now()
+            today = now.date()
+            week_ago = now - timedelta(days=7)
+            
+            total_size = 0
+            latest_video_time = None
+            latest_video_path = None
+            
+            for video in all_videos:
+                # Taille totale
+                total_size += video['size']
+                
+                # Vidéos aujourd'hui
+                if video['created'].date() == today:
+                    stats['videos_today'] += 1
+                
+                # Vidéos cette semaine
+                if video['created'] >= week_ago:
+                    stats['videos_this_week'] += 1
+                
+                # Dernière vidéo
+                if latest_video_time is None or video['created'] > latest_video_time:
+                    latest_video_time = video['created']
+                    latest_video_path = os.path.basename(video['path'])
+                
+                # Formats
+                format_ext = video['format']
+                stats['formats'][format_ext] = stats['formats'].get(format_ext, 0) + 1
+            
+            stats['total_videos'] = len(all_videos)
+            stats['total_size_mb'] = round(total_size / (1024 * 1024), 2)
+            stats['average_size_mb'] = round(stats['total_size_mb'] / max(1, len(all_videos)), 2)
+            
+            if latest_video_path:
+                stats['latest_video'] = {
+                    'filename': latest_video_path,
+                    'created': latest_video_time.isoformat()
+                }
+        
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API stats vidéos: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+@api_bp.route('/video-queue-status', methods=['GET'])
+def get_video_queue_status():
+    """API pour récupérer le statut de la queue vidéo"""
+    try:
+        if not hasattr(current_app, 'svd_generator') or not current_app.svd_generator:
+            return jsonify({
+                'success': False,
+                'error': 'SVD non disponible'
+            })
+        
+        if not current_app.svd_generator.is_available:
+            return jsonify({
+                'success': False,
+                'error': 'SVD non accessible'
+            })
+        
+        queue_status = current_app.svd_generator.get_queue_status()
+        
+        # Formater les informations de queue
+        queue_info = {
+            'running': len(queue_status.get('queue_running', [])),
+            'pending': len(queue_status.get('queue_pending', [])),
+            'running_jobs': [],
+            'pending_jobs': []
+        }
+        
+        # Détails des jobs en cours
+        for job in queue_status.get('queue_running', []):
+            if len(job) >= 2:
+                queue_info['running_jobs'].append({
+                    'id': job[1],
+                    'started': job[0] if len(job) > 0 else None
+                })
+        
+        # Détails des jobs en attente
+        for job in queue_status.get('queue_pending', []):
+            if len(job) >= 2:
+                queue_info['pending_jobs'].append({
+                    'id': job[1],
+                    'queued': job[0] if len(job) > 0 else None
+                })
+        
+        return jsonify({
+            'success': True,
+            'queue': queue_info,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API queue SVD: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+
+# Route pour servir les vidéos
+@api_bp.route('/serve-video/<filename>')
+def serve_video(filename):
+    """Sert les vidéos depuis le dossier generated/videos"""
+    try:
+        from flask import send_from_directory
+        return send_from_directory('generated/videos', filename)
+    except Exception as e:
+        current_app.logger.error(f"Erreur servir vidéo: {e}")
+        return "Vidéo non trouvée", 404
+
+
+# Mise à jour de la route stats pour inclure les vidéos
+@api_bp.route('/stats', methods=['GET'])
+def get_stats():
+    """API pour récupérer les statistiques complètes (AVEC VIDÉOS)"""
+    try:
+        # Statistiques des posts
+        posts_stats = current_app.db_manager.get_posts_stats() if hasattr(current_app, 'db_manager') and current_app.db_manager else {}
+        
+        # Statistiques du scheduler
+        scheduler_stats = None
+        if hasattr(current_app, 'scheduler') and current_app.scheduler:
+            try:
+                scheduler_stats = current_app.scheduler.get_statistics()
+            except Exception as e:
+                current_app.logger.warning(f"Erreur stats scheduler: {e}")
+        
+        # Statistiques vidéos
+        video_stats = {}
+        try:
+            video_response = get_video_stats()
+            if video_response[1] == 200:  # Status code 200
+                video_data = video_response[0].get_json()
+                if video_data.get('success'):
+                    video_stats = video_data.get('stats', {})
+        except Exception as e:
+            current_app.logger.warning(f"Erreur stats vidéos: {e}")
+        
+        # Statut des services (AVEC VIDÉOS)
+        services_status = {
+            'database': hasattr(current_app, 'db_manager') and current_app.db_manager is not None,
+            'content_generator': hasattr(current_app, 'content_generator') and current_app.content_generator is not None,
+            'scheduler': hasattr(current_app, 'scheduler') and current_app.scheduler is not None and (current_app.scheduler.is_running if hasattr(current_app.scheduler, 'is_running') else False)
+        }
+        
+        # Services d'images
+        if hasattr(current_app, 'sd_generator') and current_app.sd_generator:
+            services_status['stable_diffusion'] = current_app.sd_generator.is_available if hasattr(current_app.sd_generator, 'is_available') else False
+        else:
+            services_status['stable_diffusion'] = False
+        
+        if hasattr(current_app, 'hf_generator') and current_app.hf_generator:
+            services_status['huggingface'] = True
+        else:
+            services_status['huggingface'] = False
+        
+        if hasattr(current_app, 'image_generator') and current_app.image_generator and not hasattr(current_app.image_generator, 'is_available'):
+            services_status['openai_images'] = True
+        else:
+            services_status['openai_images'] = False
+        
+        # Services de vidéos (NOUVEAU)
+        if hasattr(current_app, 'svd_generator') and current_app.svd_generator:
+            services_status['stable_video_diffusion'] = getattr(current_app.svd_generator, 'is_available', False)
+        else:
+            services_status['stable_video_diffusion'] = False
+        
+        # Instagram
+        services_status['instagram_publisher'] = hasattr(current_app, 'instagram_publisher') and current_app.instagram_publisher is not None
+        
+        return jsonify({
+            'success': True,
+            'posts': posts_stats,
+            'videos': video_stats,
+            'scheduler': scheduler_stats,
+            'services': services_status,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur API statistiques: {e}")
+        return jsonify({'error': f'Erreur serveur: {str(e)}'}), 500
+
+

@@ -7,50 +7,458 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .navbar-brand { font-weight: bold; }
-        .card { box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
-        .status-badge { font-size: 0.875rem; }
-        .btn-sm { font-size: 0.875rem; }
-        .footer { margin-top: 3rem; padding: 2rem 0; background-color: #f8f9fa; }
+        .navbar-brand { 
+            font-weight: bold; 
+            font-size: 1.5rem;
+        }
+        .card { 
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        .status-badge { 
+            font-size: 0.875rem; 
+        }
+        .btn-sm { 
+            font-size: 0.875rem; 
+        }
+        .footer { 
+            margin-top: 3rem; 
+            padding: 2rem 0; 
+            background-color: #f8f9fa; 
+        }
+        
+        /* Navigation améliorée */
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .navbar-nav .nav-link {
+            transition: all 0.3s ease;
+            border-radius: 0.375rem;
+            margin: 0 0.25rem;
+        }
+        .navbar-nav .nav-link:hover {
+            background-color: rgba(255,255,255,0.1);
+            transform: translateY(-1px);
+        }
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            border-radius: 0.5rem;
+        }
+        .dropdown-item {
+            padding: 0.5rem 1rem;
+            transition: all 0.2s ease;
+        }
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+        
+        /* Badges et statuts */
+        .badge-video {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+        .badge-image {
+            background: linear-gradient(45deg, #007bff, #6610f2);
+        }
+        .badge-scheduled {
+            background: linear-gradient(45deg, #ffc107, #fd7e14);
+        }
+        .badge-published {
+            background: linear-gradient(45deg, #28a745, #198754);
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .processing {
+            animation: pulse 2s infinite;
+        }
+        
+        /* Vidéos */
+        .video-thumbnail {
+            border-radius: 0.375rem;
+            transition: transform 0.2s ease;
+        }
+        .video-thumbnail:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1.2rem;
+            }
+            .card-body h3 {
+                font-size: 1.5rem;
+            }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .card {
+                background-color: #2d3748;
+                border-color: #4a5568;
+            }
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">
-                <i class="fas fa-robot"></i> Instagram Automation
+                <i class="fas fa-robot me-2"></i>Instagram Automation
+                <small class="badge bg-light text-primary ms-2">v2.0</small>
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{{ url_for('main.index') }}">Dashboard</a>
-                <a class="nav-link" href="{{ url_for('main.create_post') }}">Créer Post</a>
-                <a class="nav-link" href="{{ url_for('main.settings') }}">Paramètres</a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto">
+                    <!-- Dashboard -->
+                    <a class="nav-link" href="{{ url_for('main.index') }}">
+                        <i class="fas fa-home me-1"></i>Dashboard
+                    </a>
+                    
+                    <!-- Dropdown Créer -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarCreateDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-plus me-1"></i>Créer
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarCreateDropdown">
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-magic me-2"></i>Nouveau contenu
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.create_post') }}">
+                                    <i class="fas fa-image me-2 text-primary"></i>Post avec Image IA
+                                </a>
+                            </li>
+                            {% if services_available.video_generator %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.create_video_post') }}">
+                                    <i class="fas fa-video me-2 text-success"></i>Post avec Vidéo IA
+                                    <span class="badge bg-success ms-2">Nouveau</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li>
+                                <span class="dropdown-item text-muted">
+                                    <i class="fas fa-video me-2"></i>Post avec Vidéo IA
+                                    <small class="text-warning ms-2">(SVD requis)</small>
+                                </span>
+                            </li>
+                            {% endif %}
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-flask me-2"></i>Tests
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.test_generation_page') }}">
+                                    <i class="fas fa-image me-2 text-info"></i>Test Images
+                                </a>
+                            </li>
+                            {% if services_available.video_generator %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.test_video_generation_page') }}">
+                                    <i class="fas fa-play-circle me-2 text-info"></i>Test Vidéos
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    
+                    <!-- Dropdown Galeries -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarGalleryDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-images me-1"></i>Galeries
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarGalleryDropdown">
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-folder me-2"></i>Contenus générés
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.image_gallery') }}">
+                                    <i class="fas fa-images me-2 text-primary"></i>Images IA
+                                    <span class="badge bg-primary ms-2" id="nav-images-count">0</span>
+                                </a>
+                            </li>
+                            {% if services_available.video_generator %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.video_gallery') }}">
+                                    <i class="fas fa-film me-2 text-success"></i>Vidéos IA
+                                    <span class="badge bg-success ms-2" id="nav-videos-count">0</span>
+                                </a>
+                            </li>
+                            {% else %}
+                            <li>
+                                <span class="dropdown-item text-muted">
+                                    <i class="fas fa-film me-2"></i>Vidéos IA
+                                    <small class="text-warning ms-2">(SVD requis)</small>
+                                </span>
+                            </li>
+                            {% endif %}
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-list me-2"></i>Posts
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('main.list_posts') }}">
+                                    <i class="fas fa-list me-2 text-secondary"></i>Tous les Posts
+                                    <span class="badge bg-secondary ms-2" id="nav-posts-count">0</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Paramètres -->
+                    <a class="nav-link" href="{{ url_for('main.settings') }}">
+                        <i class="fas fa-cog me-1"></i>Paramètres
+                    </a>
+                    
+                    <!-- Indicateur de statut -->
+                    <li class="nav-item">
+                        <span class="nav-link" id="status-indicator">
+                            <i class="fas fa-circle text-success me-1" title="Services IA actifs"></i>
+                            <span class="d-none d-lg-inline">IA Active</span>
+                        </span>
+                    </li>
+                </div>
             </div>
         </div>
     </nav>
 
     <main class="container mt-4">
+        <!-- Messages flash avec styles améliorés -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }}"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
+                <div id="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'warning' if category == 'warning' else 'info' }} alert-dismissible fade show" role="alert">
+                            <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' if category == 'success' else 'exclamation-circle' if category == 'warning' else 'info-circle' }} me-2"></i>
+                            <strong>
+                                {% if category == 'error' %}Erreur:{% endif %}
+                                {% if category == 'success' %}Succès:{% endif %}
+                                {% if category == 'warning' %}Attention:{% endif %}
+                                {% if category == 'info' %}Info:{% endif %}
+                            </strong>
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
+        <!-- Contenu principal -->
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer">
-        <div class="container text-center text-muted">
-            <small>Instagram Automation App - Créé avec Flask et IA</small>
+    <!-- Footer amélioré -->
+    <footer class="footer mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-muted">
+                        <i class="fas fa-robot me-2"></i>Instagram Automation v2.0
+                    </h6>
+                    <p class="text-muted small mb-0">
+                        Automatisation Instagram avec IA complète (Images + Vidéos)
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="d-flex justify-content-md-end align-items-center">
+                        <!-- Services actifs -->
+                        <div class="me-3">
+                            <small class="text-muted">Services IA:</small>
+                            {% if services_available.content_generator %}
+                                <span class="badge bg-primary ms-1">Ollama</span>
+                            {% endif %}
+                            {% if services_available.ai_generator %}
+                                <span class="badge bg-success ms-1">SD</span>
+                            {% endif %}
+                            {% if services_available.video_generator %}
+                                <span class="badge bg-info ms-1">SVD</span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Liens utiles -->
+                        <div class="btn-group btn-group-sm">
+                            <a href="/health" class="btn btn-outline-success" title="Health Check">
+                                <i class="fas fa-heartbeat"></i>
+                            </a>
+                            <a href="/debug" class="btn btn-outline-info" title="Debug Info">
+                                <i class="fas fa-bug"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Copyright -->
+            <hr class="my-3">
+            <div class="text-center">
+                <small class="text-muted">
+                    © {{ current_year }} Instagram Automation - Créé avec Flask, Ollama, Stable Diffusion & SVD
+                </small>
+            </div>
         </div>
     </footer>
 
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Script global pour navbar et statistiques -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Charger les compteurs de la navbar
+        loadNavbarCounts();
+        
+        // Vérifier le statut des services
+        checkServicesStatus();
+        
+        // Auto-dismiss des messages flash après 5 secondes
+        setTimeout(() => {
+            const flashMessages = document.getElementById('flash-messages');
+            if (flashMessages) {
+                const alerts = flashMessages.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }
+        }, 5000);
+        
+        // Refresh périodique des compteurs
+        setInterval(loadNavbarCounts, 60000); // Toutes les minutes
+    });
+    
+    function loadNavbarCounts() {
+        // Charger les statistiques pour la navbar
+        fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Compteur posts
+                const postsCount = data.posts?.total || 0;
+                const postsElement = document.getElementById('nav-posts-count');
+                if (postsElement) {
+                    postsElement.textContent = postsCount;
+                }
+                
+                // Estimation compteur images (basé sur posts avec images)
+                const imagesCount = Math.round((data.posts?.total || 0) * 0.8);
+                const imagesElement = document.getElementById('nav-images-count');
+                if (imagesElement) {
+                    imagesElement.textContent = imagesCount;
+                }
+            }
+        })
+        .catch(error => console.log('Erreur stats navbar:', error));
+        
+        // Charger les stats vidéos
+        fetch('/api/video-stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const videosCount = data.stats?.total_videos || 0;
+                const videosElement = document.getElementById('nav-videos-count');
+                if (videosElement) {
+                    videosElement.textContent = videosCount;
+                }
+            }
+        })
+        .catch(error => console.log('Erreur stats vidéos navbar:', error));
+    }
+    
+    function checkServicesStatus() {
+        const statusIndicator = document.getElementById('status-indicator');
+        if (!statusIndicator) return;
+        
+        fetch('/health')
+        .then(response => response.json())
+        .then(data => {
+            const icon = statusIndicator.querySelector('i');
+            const text = statusIndicator.querySelector('span');
+            
+            if (data.health_score >= 80) {
+                icon.className = 'fas fa-circle text-success me-1';
+                if (text) text.textContent = 'IA Active';
+                statusIndicator.title = `Santé: ${data.health_score}% - Excellent`;
+            } else if (data.health_score >= 60) {
+                icon.className = 'fas fa-circle text-warning me-1';
+                if (text) text.textContent = 'IA Partielle';
+                statusIndicator.title = `Santé: ${data.health_score}% - Bon`;
+            } else {
+                icon.className = 'fas fa-circle text-danger me-1';
+                if (text) text.textContent = 'IA Limitée';
+                statusIndicator.title = `Santé: ${data.health_score}% - Problèmes`;
+            }
+        })
+        .catch(error => {
+            const icon = statusIndicator.querySelector('i');
+            icon.className = 'fas fa-circle text-secondary me-1';
+            statusIndicator.title = 'Statut inconnu';
+        });
+    }
+    
+    // Fonctions utilitaires globales
+    window.showNotification = function(message, type = 'info') {
+        const toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.setAttribute('role', 'alert');
+        
+        const iconClass = type === 'success' ? 'check-circle text-success' : 
+                         type === 'error' ? 'exclamation-triangle text-danger' : 
+                         'info-circle text-primary';
+        
+        toast.innerHTML = `
+            <div class="toast-header">
+                <i class="fas fa-${iconClass} me-2"></i>
+                <strong class="me-auto">Instagram Automation</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">${message}</div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        document.body.appendChild(toastContainer);
+        
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        // Nettoyer après fermeture
+        toast.addEventListener('hidden.bs.toast', function() {
+            document.body.removeChild(toastContainer);
+        });
+    };
+    </script>
+    
     {% block scripts %}{% endblock %}
 </body>
 </html>
