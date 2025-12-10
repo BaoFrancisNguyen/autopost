@@ -345,22 +345,42 @@ def init_services(app, services):
     
     # 2. GÉNÉRATEUR D'IMAGES - CORRECTION MAJEURE
     
-    # A. Stable Diffusion (priorité 1 - gratuit et local)
+    # A. Stable Diffusion (priorité 1 - local et gratuit)
     if Config.USE_STABLE_DIFFUSION:
         try:
             from services.stable_diffusion_generator import StableDiffusionGenerator
+            
+            print(f"🔄 Initialisation Stable Diffusion sur {Config.STABLE_DIFFUSION_URL}...")
             app.sd_generator = StableDiffusionGenerator(Config.STABLE_DIFFUSION_URL)
-            if app.sd_generator.is_available:
-                app.image_generator = app.sd_generator  # Utiliser SD comme générateur principal
-                print("✅ Stable Diffusion configuré comme générateur d'images principal")
+            
+            # ✅ VÉRIFICATION CRITIQUE - C'est ici que ça coince normalement!
+            if hasattr(app.sd_generator, 'is_available') and app.sd_generator.is_available:
+                # ✅✅✅ STABLE DIFFUSION FONCTIONNE!
+                app.image_generator = app.sd_generator
+                print("✅✅✅ Stable Diffusion ACTIF et configuré comme générateur principal!")
+                print(f"   🌐 URL: {Config.STABLE_DIFFUSION_URL}")
+                
+                # Afficher des infos supplémentaires
+                try:
+                    models = app.sd_generator.get_available_models()
+                    if models:
+                        print(f"   🧠 {len(models)} modèle(s) disponible(s)")
+                        current_model = app.sd_generator.get_current_model()
+                        print(f"   📋 Modèle actuel: {current_model}")
+                except Exception as e:
+                    print(f"   ⚠️  Impossible de récupérer les modèles: {e}")
             else:
-                print(f"⚠️  Stable Diffusion configuré mais non disponible sur {Config.STABLE_DIFFUSION_URL}")
-                print("💡 Démarrez l'interface web avec: python launch.py --api")
+                print(f"⚠️  Stable Diffusion configuré mais NON ACCESSIBLE sur {Config.STABLE_DIFFUSION_URL}")
+                print(f"💡 Vérifiez que SD est démarré avec: webui-user.bat --api (Windows)")
+                print(f"💡 Ou: ./webui.sh --api (Linux/Mac)")
+                
         except ImportError as e:
             print(f"❌ Module Stable Diffusion manquant: {e}")
             print("💡 Le fichier services/stable_diffusion_generator.py est requis")
         except Exception as e:
             print(f"❌ Erreur Stable Diffusion: {e}")
+            import traceback
+            traceback.print_exc()
     
     # B. Hugging Face (priorité 2 - gratuit en ligne)
     if Config.USE_HUGGINGFACE and not app.image_generator:
@@ -377,17 +397,16 @@ def init_services(app, services):
     # C. OpenAI DALL-E (priorité 3 - payant mais fiable)
     if Config.OPENAI_API_KEY and not app.image_generator:
         try:
-            # Vérifier si le module OpenAI est disponible
             import openai
             from services.ai_generator import AIImageGenerator
             openai_generator = AIImageGenerator(Config.OPENAI_API_KEY)
             app.image_generator = openai_generator
             print("✅ OpenAI DALL-E configuré comme générateur d'images")
-        except ImportError as e:
-            print(f"❌ Module OpenAI manquant: {e}")
+        except ImportError:
+            print("❌ Module OpenAI manquant")
             print("💡 Installez avec: pip install openai")
         except Exception as e:
-            print(f"❌ Erreur générateur d'images OpenAI: {e}")
+            print(f"❌ Erreur OpenAI: {e}")
     
     # D. GÉNÉRATEUR PLACEHOLDER si aucun service disponible
     if not app.image_generator:
@@ -402,7 +421,8 @@ def init_services(app, services):
             def generate_image(self, prompt, **kwargs):
                 from models import ImageGenerationResult
                 return ImageGenerationResult.error_result(
-                    "Aucun service de génération d'images configuré", prompt
+                    "Aucun service de génération d'images configuré", 
+                    service_used="placeholder"
                 )
             
             def validate_prompt(self, prompt):
@@ -411,22 +431,19 @@ def init_services(app, services):
         app.image_generator = PlaceholderImageGenerator()
         print("🔧 Générateur placeholder créé (pas de génération réelle)")
     
-    # Résumé des services d'images
-    if hasattr(app.image_generator, 'is_available'):
-        if app.sd_generator and app.sd_generator.is_available:
-            service_name = "Stable Diffusion"
-        elif app.hf_generator:
-            service_name = "Hugging Face"
+    # Résumé du service d'images actif
+    def get_active_service():
+        if hasattr(app, 'sd_generator') and app.sd_generator and getattr(app.sd_generator, 'is_available', False):
+            return "Stable Diffusion"
+        elif hasattr(app, 'hf_generator') and app.hf_generator:
+            return "Hugging Face"
+        elif hasattr(app, 'image_generator') and app.image_generator and not hasattr(app.image_generator, 'is_available'):
+            return "OpenAI DALL-E"
         else:
-            service_name = "Inconnu"
-    elif hasattr(app.image_generator, 'api_key'):
-        service_name = "OpenAI DALL-E"
-    else:
-        service_name = "Placeholder (aucun service actif)"
+            return "Placeholder (aucun service actif)"
     
+    service_name = get_active_service()
     print(f"🎨 Service d'images actif: {service_name}")
-    
-    print("\n📸 Configuration Instagram...")
     
     # Service Instagram
     if services.get('instagram') and Config.INSTAGRAM_ACCESS_TOKEN and Config.INSTAGRAM_ACCOUNT_ID:

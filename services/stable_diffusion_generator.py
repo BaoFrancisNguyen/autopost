@@ -46,7 +46,7 @@ class StableDiffusionGenerator:
     def _test_connection(self) -> bool:
         """Teste la connexion à Stable Diffusion"""
         try:
-            response = requests.get(self.options_url, timeout=5)
+            response = requests.get(self.options_url, timeout=60)
             return response.status_code == 200
         except Exception as e:
             return False
@@ -327,7 +327,7 @@ class StableDiffusionGenerator:
             return {"progress": 0, "eta": 0, "current_image": None}
         
         try:
-            response = requests.get(self.progress_url, timeout=5)
+            response = requests.get(self.progress_url, timeout=60)
             if response.status_code == 200:
                 return response.json()
             return {"progress": 0, "eta": 0, "current_image": None}

@@ -31,7 +31,7 @@ class Config:
     
     # Configuration Stable Diffusion
     USE_STABLE_DIFFUSION = os.getenv('USE_STABLE_DIFFUSION', 'True').lower() == 'true'
-    STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://localhost:7861')
+    STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://127.0.0.1:7860')
     SD_DEFAULT_STEPS = int(os.getenv('SD_DEFAULT_STEPS', '20'))
     SD_DEFAULT_CFG_SCALE = float(os.getenv('SD_DEFAULT_CFG_SCALE', '7.0'))
     SD_DEFAULT_SIZE = os.getenv('SD_DEFAULT_SIZE', '1024x1024')
@@ -252,7 +252,7 @@ class ProductionConfig(Config):
     
     # En production, utiliser des URLs externes si nécessaire
     OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')  # Docker
-    STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://stable-diffusion:7861')  # Docker
+    STABLE_DIFFUSION_URL = os.getenv('STABLE_DIFFUSION_URL', 'http://127.0.0.1:7860')  # Docker
     SVD_API_URL = os.getenv('SVD_API_URL', 'http://comfyui:7862')  # Docker
     
     @staticmethod

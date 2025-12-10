@@ -48,7 +48,7 @@ class Post:
     title: str
     description: str
     hashtags: str
-    media_prompt: str  # Prompt pour image ou vidéo
+    image_prompt: str  # ✅ CORRIGÉ: Changé de media_prompt à image_prompt
     topic: str
     tone: str = ContentTone.ENGAGING.value
     media_type: str = MediaType.IMAGE.value  # "image" ou "video"
@@ -77,132 +77,13 @@ class Post:
         if hasattr(self.status, 'value'):
             self.status = self.status.value
         
-        # S'assurer que le type de média est valide
+        # S'assurer que media_type est une string
         if hasattr(self.media_type, 'value'):
             self.media_type = self.media_type.value
-    
-    def get_media_path(self) -> Optional[str]:
-        """Retourne le chemin du média principal selon le type"""
-        if self.media_type == MediaType.VIDEO.value and self.video_path:
-            return self.video_path
-        elif self.media_type == MediaType.IMAGE.value and self.image_path:
-            return self.image_path
-        # Fallback: retourner le premier média disponible
-        return self.video_path or self.image_path
-    
-    def get_media_url(self, base_url: str = "/static/generated") -> Optional[str]:
-        """Retourne l'URL du média pour l'affichage web"""
-        media_path = self.get_media_path()
-        if not media_path:
-            return None
         
-        filename = os.path.basename(media_path)
-        if self.media_type == MediaType.VIDEO.value:
-            return f"{base_url}/videos/{filename}"
-        else:
-            return f"{base_url}/{filename}"
-    
-    def has_media(self) -> bool:
-        """Vérifie si le post a un média"""
-        return bool(self.get_media_path())
-    
-    def has_image(self) -> bool:
-        """Vérifie si le post a une image"""
-        return bool(self.image_path and os.path.exists(self.image_path))
-    
-    def has_video(self) -> bool:
-        """Vérifie si le post a une vidéo"""
-        return bool(self.video_path and os.path.exists(self.video_path))
-    
-    def get_full_caption(self) -> str:
-        """Retourne le caption complet (description + hashtags)"""
-        caption_parts = []
-        
-        if self.description:
-            caption_parts.append(self.description)
-        
-        if self.hashtags:
-            # S'assurer qu'il y a une ligne vide entre description et hashtags
-            if caption_parts:
-                caption_parts.append("")
-            caption_parts.append(self.hashtags)
-        
-        return "\n".join(caption_parts)
-    
-    def is_ready_to_publish(self) -> bool:
-        """Vérifie si le post est prêt à être publié maintenant"""
-        return (
-            self.status == PostStatus.SCHEDULED.value and
-            self.scheduled_time and
-            self.scheduled_time <= datetime.now() and
-            self.has_media() and
-            self.description
-        )
-    
-    def can_be_published(self) -> bool:
-        """Vérifie si le post peut être publié (conditions générales)"""
-        return (
-            self.status in [PostStatus.DRAFT.value, PostStatus.SCHEDULED.value, PostStatus.FAILED.value] and
-            self.description and
-            self.has_media()
-        )
-    
-    def is_published(self) -> bool:
-        """Vérifie si le post est publié"""
-        return self.status == PostStatus.PUBLISHED.value
-    
-    def is_scheduled(self) -> bool:
-        """Vérifie si le post est programmé"""
-        return (
-            self.status == PostStatus.SCHEDULED.value and
-            self.scheduled_time and
-            self.scheduled_time > datetime.now()
-        )
-    
-    def get_status_display(self) -> Dict[str, str]:
-        """Retourne les informations d'affichage du statut"""
-        status_info = {
-            PostStatus.DRAFT.value: {"label": "Brouillon", "icon": "fas fa-edit", "class": "secondary"},
-            PostStatus.SCHEDULED.value: {"label": "Programmé", "icon": "fas fa-clock", "class": "warning"},
-            PostStatus.PUBLISHED.value: {"label": "Publié", "icon": "fas fa-check-circle", "class": "success"},
-            PostStatus.FAILED.value: {"label": "Échec", "icon": "fas fa-exclamation-triangle", "class": "danger"},
-            PostStatus.PROCESSING.value: {"label": "En cours", "icon": "fas fa-spinner", "class": "info"}
-        }
-        
-        return status_info.get(self.status, {"label": "Inconnu", "icon": "fas fa-question", "class": "secondary"})
-    
-    def get_media_type_display(self) -> Dict[str, str]:
-        """Retourne les informations d'affichage du type de média"""
-        media_info = {
-            MediaType.IMAGE.value: {"label": "Image", "icon": "fas fa-image", "class": "primary"},
-            MediaType.VIDEO.value: {"label": "Vidéo", "icon": "fas fa-video", "class": "success"},
-            MediaType.CAROUSEL.value: {"label": "Carrousel", "icon": "fas fa-images", "class": "info"}
-        }
-        
-        return media_info.get(self.media_type, {"label": "Média", "icon": "fas fa-file", "class": "secondary"})
-    
-    def update_status(self, new_status: Union[str, PostStatus], error_message: str = None):
-        """Met à jour le statut du post"""
-        if isinstance(new_status, PostStatus):
-            new_status = new_status.value
-        
-        self.status = new_status
-        self.error_message = error_message
-        self.updated_at = datetime.now()
-    
-    def set_generation_params(self, service: str, params: Dict[str, Any]):
-        """Enregistre les paramètres de génération"""
-        self.generation_service = service
-        self.generation_params = json.dumps(params) if params else None
-    
-    def get_generation_params(self) -> Dict[str, Any]:
-        """Récupère les paramètres de génération"""
-        if not self.generation_params:
-            return {}
-        try:
-            return json.loads(self.generation_params)
-        except json.JSONDecodeError:
-            return {}
+        # S'assurer que tone est une string
+        if hasattr(self.tone, 'value'):
+            self.tone = self.tone.value
     
     def to_dict(self) -> Dict[str, Any]:
         """Convertit le post en dictionnaire"""
@@ -211,7 +92,7 @@ class Post:
             'title': self.title,
             'description': self.description,
             'hashtags': self.hashtags,
-            'media_prompt': self.media_prompt,
+            'image_prompt': self.image_prompt,  # ✅ CORRIGÉ
             'topic': self.topic,
             'tone': self.tone,
             'media_type': self.media_type,
@@ -224,32 +105,26 @@ class Post:
             'instagram_post_id': self.instagram_post_id,
             'error_message': self.error_message,
             'generation_service': self.generation_service,
-            'generation_params': self.get_generation_params(),
+            'generation_params': self.generation_params,
             'views_count': self.views_count,
             'likes_count': self.likes_count,
-            'comments_count': self.comments_count,
-            'media_url': self.get_media_url(),
-            'has_media': self.has_media(),
-            'has_image': self.has_image(),
-            'has_video': self.has_video(),
-            'status_display': self.get_status_display(),
-            'media_type_display': self.get_media_type_display()
+            'comments_count': self.comments_count
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Post':
         """Crée un post à partir d'un dictionnaire"""
-        # Conversion des dates
-        for date_field in ['scheduled_time', 'created_at', 'updated_at']:
-            if data.get(date_field):
-                try:
-                    data[date_field] = datetime.fromisoformat(data[date_field])
-                except (ValueError, TypeError):
-                    data[date_field] = None
+        # Convertir les dates ISO en datetime
+        if data.get('scheduled_time') and isinstance(data['scheduled_time'], str):
+            data['scheduled_time'] = datetime.fromisoformat(data['scheduled_time'])
+        if data.get('created_at') and isinstance(data['created_at'], str):
+            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        if data.get('updated_at') and isinstance(data['updated_at'], str):
+            data['updated_at'] = datetime.fromisoformat(data['updated_at'])
         
-        # Nettoyer les champs qui ne sont pas dans le constructeur
+        # Filtrer les champs qui ne sont pas dans le constructeur
         constructor_fields = {
-            'id', 'title', 'description', 'hashtags', 'media_prompt', 'topic', 'tone',
+            'id', 'title', 'description', 'hashtags', 'image_prompt', 'topic', 'tone',
             'media_type', 'image_path', 'video_path', 'scheduled_time', 'status',
             'created_at', 'updated_at', 'instagram_post_id', 'error_message',
             'generation_service', 'generation_params', 'views_count', 'likes_count', 'comments_count'
@@ -268,7 +143,7 @@ class Post:
             title=row[1],
             description=row[2],
             hashtags=row[3],
-            media_prompt=row[4],
+            image_prompt=row[4],  # ✅ CORRIGÉ
             topic=row[5],
             tone=row[6] if row[6] else ContentTone.ENGAGING.value,
             media_type=row[7] if row[7] else MediaType.IMAGE.value,
@@ -293,7 +168,7 @@ class GenerationRequest:
     """Modèle pour une demande de génération de contenu"""
     topic: str
     tone: ContentTone
-    media_prompt: str
+    image_prompt: str  # ✅ CORRIGÉ
     media_type: MediaType = MediaType.IMAGE
     additional_instructions: Optional[str] = None
     target_audience: Optional[str] = None
@@ -310,7 +185,7 @@ class GenerationRequest:
         ]
         
         if self.target_audience:
-            prompt_parts.append(f"Audience cible: {self.target_audience}")
+            prompt_parts.append(f"Public cible: {self.target_audience}")
         
         if self.additional_instructions:
             prompt_parts.append(f"Instructions supplémentaires: {self.additional_instructions}")
@@ -318,279 +193,261 @@ class GenerationRequest:
         if self.include_call_to_action:
             prompt_parts.append("Incluez un appel à l'action engageant")
         
-        prompt_parts.extend([
-            f"Utilisez maximum {self.max_hashtags} hashtags pertinents et populaires",
-            "",
-            "Format de réponse:",
-            "DESCRIPTION: [description ici]",
-            "HASHTAGS: [hashtags séparés par des espaces]"
-        ])
+        prompt_parts.append(f"Générez jusqu'à {self.max_hashtags} hashtags pertinents")
         
         return "\n".join(prompt_parts)
 
 
 @dataclass
-class PublicationResult:
-    """Résultat d'une tentative de publication"""
+class GenerationResult:
+    """Modèle pour le résultat d'une génération"""
     success: bool
-    post_id: Optional[str] = None
+    content: Optional[str] = None
+    hashtags: Optional[str] = None
+    image_path: Optional[str] = None
+    video_path: Optional[str] = None
+    image_prompt: Optional[str] = None  # ✅ CORRIGÉ
     error_message: Optional[str] = None
-    instagram_post_id: Optional[str] = None
-    platform_data: Optional[Dict[str, Any]] = None
+    generation_time: Optional[float] = None
+    service_used: Optional[str] = None
     
-    @classmethod
-    def success_result(cls, post_id: str, instagram_post_id: str, 
-                      platform_data: Dict[str, Any] = None) -> 'PublicationResult':
-        """Crée un résultat de succès"""
-        return cls(
-            success=True,
-            post_id=post_id,
-            instagram_post_id=instagram_post_id,
-            platform_data=platform_data or {}
-        )
-    
-    @classmethod
-    def error_result(cls, error_message: str, post_id: str = None) -> 'PublicationResult':
-        """Crée un résultat d'erreur"""
-        return cls(
-            success=False,
-            post_id=post_id,
-            error_message=error_message
-        )
+    def to_dict(self) -> Dict[str, Any]:
+        """Convertit en dictionnaire"""
+        return {
+            'success': self.success,
+            'content': self.content,
+            'hashtags': self.hashtags,
+            'image_path': self.image_path,
+            'video_path': self.video_path,
+            'image_prompt': self.image_prompt,  # ✅ CORRIGÉ
+            'error_message': self.error_message,
+            'generation_time': self.generation_time,
+            'service_used': self.service_used
+        }
 
 
 @dataclass
 class ImageGenerationResult:
-    """Résultat d'une génération d'image"""
+    """Modèle pour le résultat d'une génération d'image"""
     success: bool
     image_path: Optional[str] = None
     error_message: Optional[str] = None
-    prompt_used: Optional[str] = None
     generation_time: Optional[float] = None
     service_used: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
+    prompt_used: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convertit en dictionnaire"""
+        return {
+            'success': self.success,
+            'image_path': self.image_path,
+            'error_message': self.error_message,
+            'generation_time': self.generation_time,
+            'service_used': self.service_used,
+            'prompt_used': self.prompt_used
+        }
     
     @classmethod
-    def success_result(cls, image_path: str, prompt_used: str, 
-                      generation_time: float = None, service_used: str = None,
-                      parameters: Dict[str, Any] = None) -> 'ImageGenerationResult':
-        """Crée un résultat de succès"""
-        return cls(
-            success=True,
-            image_path=image_path,
-            prompt_used=prompt_used,
-            generation_time=generation_time,
-            service_used=service_used,
-            parameters=parameters or {}
-        )
-    
-    @classmethod
-    def error_result(cls, error_message: str, prompt_used: str = None) -> 'ImageGenerationResult':
+    def error_result(cls, error_message: str, service_used: str = "unknown") -> 'ImageGenerationResult':
         """Crée un résultat d'erreur"""
         return cls(
             success=False,
             error_message=error_message,
-            prompt_used=prompt_used
+            service_used=service_used
+        )
+    
+    @classmethod
+    def success_result(cls, image_path: str, service_used: str, prompt_used: str = None, generation_time: float = None) -> 'ImageGenerationResult':
+        """Crée un résultat de succès"""
+        return cls(
+            success=True,
+            image_path=image_path,
+            service_used=service_used,
+            prompt_used=prompt_used,
+            generation_time=generation_time
         )
 
 
 @dataclass
 class VideoGenerationResult:
-    """Résultat d'une génération de vidéo"""
+    """Modèle pour le résultat d'une génération de vidéo"""
     success: bool
     video_path: Optional[str] = None
     error_message: Optional[str] = None
-    source_prompt: Optional[str] = None
-    source_image_path: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    fps: Optional[int] = None
     generation_time: Optional[float] = None
     service_used: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
+    prompt_used: Optional[str] = None
+    duration: Optional[float] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convertit en dictionnaire"""
+        return {
+            'success': self.success,
+            'video_path': self.video_path,
+            'error_message': self.error_message,
+            'generation_time': self.generation_time,
+            'service_used': self.service_used,
+            'prompt_used': self.prompt_used,
+            'duration': self.duration
+        }
     
     @classmethod
-    def success_result(cls, video_path: str, source_prompt: str = None,
-                      source_image_path: str = None, duration: float = None, 
-                      fps: int = None, generation_time: float = None,
-                      service_used: str = None, parameters: Dict[str, Any] = None) -> 'VideoGenerationResult':
-        """Crée un résultat de succès"""
-        return cls(
-            success=True,
-            video_path=video_path,
-            source_prompt=source_prompt,
-            source_image_path=source_image_path,
-            duration_seconds=duration,
-            fps=fps,
-            generation_time=generation_time,
-            service_used=service_used,
-            parameters=parameters or {}
-        )
-    
-    @classmethod
-    def error_result(cls, error_message: str, source_prompt: str = None,
-                    source_image_path: str = None) -> 'VideoGenerationResult':
+    def error_result(cls, error_message: str, service_used: str = "unknown") -> 'VideoGenerationResult':
         """Crée un résultat d'erreur"""
         return cls(
             success=False,
             error_message=error_message,
-            source_prompt=source_prompt,
-            source_image_path=source_image_path
+            service_used=service_used
         )
-
-
-@dataclass
-class ContentGenerationResult:
-    """Résultat d'une génération de contenu"""
-    success: bool
-    description: Optional[str] = None
-    hashtags: Optional[str] = None
-    error_message: Optional[str] = None
-    service_used: Optional[str] = None
-    generation_time: Optional[float] = None
     
     @classmethod
-    def success_result(cls, description: str, hashtags: str, 
-                      service_used: str = None, generation_time: float = None) -> 'ContentGenerationResult':
+    def success_result(cls, video_path: str, service_used: str, prompt_used: str = None, 
+                      generation_time: float = None, duration: float = None) -> 'VideoGenerationResult':
         """Crée un résultat de succès"""
         return cls(
             success=True,
-            description=description,
-            hashtags=hashtags,
+            video_path=video_path,
             service_used=service_used,
-            generation_time=generation_time
+            prompt_used=prompt_used,
+            generation_time=generation_time,
+            duration=duration
+        )
+
+
+@dataclass
+class InstagramMediaMetrics:
+    """Métadonnées pour un média Instagram"""
+    media_id: str
+    media_type: str
+    caption: Optional[str] = None
+    permalink: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    like_count: int = 0
+    comments_count: int = 0
+    views_count: int = 0  # Pour les vidéos
+    saved_count: int = 0
+    reach: int = 0
+    impressions: int = 0
+    engagement_rate: float = 0.0
+    
+    @classmethod
+    def from_api_response(cls, data: Dict[str, Any]) -> 'InstagramMediaMetrics':
+        """Crée des métriques depuis une réponse API Instagram"""
+        timestamp = None
+        if data.get('timestamp'):
+            try:
+                timestamp = datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
+            except:
+                pass
+        
+        return cls(
+            media_id=data.get('id', ''),
+            media_type=data.get('media_type', 'IMAGE'),
+            caption=data.get('caption', ''),
+            permalink=data.get('permalink', ''),
+            timestamp=timestamp,
+            like_count=data.get('like_count', 0),
+            comments_count=data.get('comments_count', 0),
+            views_count=data.get('video_views', 0),
+            saved_count=data.get('saved', 0),
+            reach=data.get('reach', 0),
+            impressions=data.get('impressions', 0)
+        )
+
+
+@dataclass
+class ScheduledPost:
+    """Modèle pour un post planifié"""
+    post_id: int
+    scheduled_time: datetime
+    status: str = PostStatus.SCHEDULED.value
+    retry_count: int = 0
+    last_retry: Optional[datetime] = None
+    
+    def should_retry(self, max_retries: int = 3) -> bool:
+        """Vérifie si un nouveau essai est possible"""
+        return self.retry_count < max_retries
+    
+    def increment_retry(self):
+        """Incrémente le compteur de tentatives"""
+        self.retry_count += 1
+        self.last_retry = datetime.now()
+
+
+@dataclass
+class PublicationResult:
+    """Résultat d'une publication Instagram"""
+    success: bool
+    instagram_post_id: Optional[str] = None
+    error_message: Optional[str] = None
+    permalink: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convertit en dictionnaire"""
+        return {
+            'success': self.success,
+            'instagram_post_id': self.instagram_post_id,
+            'error_message': self.error_message,
+            'permalink': self.permalink,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }
+    
+    @classmethod
+    def success_result(cls, instagram_post_id: str, permalink: str = None) -> 'PublicationResult':
+        """Crée un résultat de succès"""
+        return cls(
+            success=True,
+            instagram_post_id=instagram_post_id,
+            permalink=permalink,
+            timestamp=datetime.now()
         )
     
     @classmethod
-    def error_result(cls, error_message: str) -> 'ContentGenerationResult':
+    def error_result(cls, error_message: str) -> 'PublicationResult':
         """Crée un résultat d'erreur"""
         return cls(
             success=False,
-            error_message=error_message
+            error_message=error_message,
+            timestamp=datetime.now()
         )
 
 
-@dataclass
-class SchedulerStats:
-    """Statistiques du scheduler"""
-    is_running: bool
-    next_check_in: Optional[int] = None
-    posts_ready: int = 0
-    posts_scheduled: int = 0
-    posts_failed: int = 0
-    next_publication_time: Optional[datetime] = None
-    last_check_time: Optional[datetime] = None
-    total_published_today: int = 0
+class ConfigurationSettings:
+    """Paramètres de configuration de l'application"""
     
+    def __init__(self):
+        self.ai_service: str = "ollama"
+        self.ollama_model: str = "mistral:latest"
+        self.ollama_url: str = "http://localhost:11434"
+        self.stable_diffusion_url: str = "http://localhost:7861"
+        self.default_steps: int = 20
+        self.default_cfg_scale: float = 7.0
+        self.auto_publish: bool = False
+        self.notification_email: Optional[str] = None
+        self.backup_enabled: bool = True
+        self.backup_frequency_hours: int = 24
+        
     def to_dict(self) -> Dict[str, Any]:
         """Convertit en dictionnaire"""
         return {
-            'is_running': self.is_running,
-            'next_check_in': self.next_check_in,
-            'posts_ready': self.posts_ready,
-            'posts_scheduled': self.posts_scheduled,
-            'posts_failed': self.posts_failed,
-            'next_publication_time': self.next_publication_time.isoformat() if self.next_publication_time else None,
-            'last_check_time': self.last_check_time.isoformat() if self.last_check_time else None,
-            'total_published_today': self.total_published_today
+            'ai_service': self.ai_service,
+            'ollama_model': self.ollama_model,
+            'ollama_url': self.ollama_url,
+            'stable_diffusion_url': self.stable_diffusion_url,
+            'default_steps': self.default_steps,
+            'default_cfg_scale': self.default_cfg_scale,
+            'auto_publish': self.auto_publish,
+            'notification_email': self.notification_email,
+            'backup_enabled': self.backup_enabled,
+            'backup_frequency_hours': self.backup_frequency_hours
         }
-
-
-@dataclass
-class ServiceStatus:
-    """Statut d'un service"""
-    name: str
-    available: bool
-    last_check: Optional[datetime] = None
-    error_message: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convertit en dictionnaire"""
-        return {
-            'name': self.name,
-            'available': self.available,
-            'last_check': self.last_check.isoformat() if self.last_check else None,
-            'error_message': self.error_message,
-            'metadata': self.metadata or {}
-        }
-
-
-# Fonctions utilitaires pour éviter les erreurs de conversion
-def status_to_string(status: Union[str, PostStatus]) -> str:
-    """Convertit un statut en string de manière sûre"""
-    if isinstance(status, str):
-        return status
-    elif hasattr(status, 'value'):
-        return status.value
-    else:
-        return str(status)
-
-
-def string_to_status_enum(status_str: str) -> PostStatus:
-    """Convertit une string en enum PostStatus"""
-    try:
-        return PostStatus(status_str)
-    except ValueError:
-        return PostStatus.DRAFT
-
-
-def media_type_to_string(media_type: Union[str, MediaType]) -> str:
-    """Convertit un type de média en string de manière sûre"""
-    if isinstance(media_type, str):
-        return media_type
-    elif hasattr(media_type, 'value'):
-        return media_type.value
-    else:
-        return MediaType.IMAGE.value
-
-
-def string_to_media_type_enum(media_type_str: str) -> MediaType:
-    """Convertit une string en enum MediaType"""
-    try:
-        return MediaType(media_type_str)
-    except ValueError:
-        return MediaType.IMAGE
-
-
-def validate_post_data(data: Dict[str, Any]) -> List[str]:
-    """Valide les données d'un post et retourne les erreurs"""
-    errors = []
-    
-    # Champs obligatoires
-    required_fields = ['title', 'description', 'media_prompt', 'topic']
-    for field in required_fields:
-        if not data.get(field, '').strip():
-            errors.append(f"Le champ '{field}' est obligatoire")
-    
-    # Validation du ton
-    if data.get('tone') and data['tone'] not in [t.value for t in ContentTone]:
-        errors.append("Ton invalide")
-    
-    # Validation du type de média
-    if data.get('media_type') and data['media_type'] not in [m.value for m in MediaType]:
-        errors.append("Type de média invalide")
-    
-    # Validation du statut
-    if data.get('status') and data['status'] not in [s.value for s in PostStatus]:
-        errors.append("Statut invalide")
-    
-    # Validation de la date de programmation
-    if data.get('scheduled_time'):
-        try:
-            scheduled_time = datetime.fromisoformat(data['scheduled_time'])
-            if scheduled_time <= datetime.now():
-                errors.append("La date de programmation doit être dans le futur")
-        except (ValueError, TypeError):
-            errors.append("Format de date invalide")
-    
-    return errors
-
-
-# Export des classes principales
-__all__ = [
-    'Post', 'PostStatus', 'ContentTone', 'MediaType', 'GenerationService',
-    'GenerationRequest', 'PublicationResult', 'ImageGenerationResult', 
-    'VideoGenerationResult', 'ContentGenerationResult', 'SchedulerStats',
-    'ServiceStatus', 'status_to_string', 'string_to_status_enum',
-    'media_type_to_string', 'string_to_media_type_enum', 'validate_post_data'
-]
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ConfigurationSettings':
+        """Crée depuis un dictionnaire"""
+        config = cls()
+        for key, value in data.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+        return config
